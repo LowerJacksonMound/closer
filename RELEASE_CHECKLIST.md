@@ -157,3 +157,7 @@ Before a pack version or a kernel change is releasable. Regenerated 2026-10-11. 
 - [x] A stranger's `gc selftest` passes: the two plants that need a Python 3.8 / pytest 3.x interpreter now report `NOT MEASURED` (exit 77) when no such interpreter is on the machine and no `GC_PLANT_*` names one; a named-but-wrong interpreter still FAILs. `plants/run_all.sh` counts PASS / FAIL / NOT MEASURED. Result on this machine: `47 PASS / 0 FAIL / 2 NOT MEASURED`, `gc: selftest PASS`.
 - [x] `closer` refuses below Python 3.10 with one sentence naming the install path, instead of a SyntaxError from `ui/go.py` on Apple's 3.9. README says how a fresh Mac gets 3.10+.
 - [ ] Still to do for rung 0: the README-only install in a real second macOS user account (rung 2 tester). Personal `~/Desktop/CLOSER_PROVING` paths remain in `bin/trials.py`, `bin/dash.py`, `KERNEL.md` and `proposals/` as documentation of where the proving runs lived; env-overridable in the two plants.
+
+## Pass 2026-10-23, rung 1
+
+- [x] Private repo https://github.com/LowerJacksonMound/closer, branch `main`, tag `v0.1.0`, prerelease published with install, verify and known-limits notes.
