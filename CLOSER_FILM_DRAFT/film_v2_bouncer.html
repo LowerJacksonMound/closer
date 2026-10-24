@@ -1,0 +1,1019 @@
+<meta charset="utf-8" />
+<title>Closer — Nothing Counterfeit Gets Written</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+	:root { --room: #2f2823; --bone: #f0ebdf; --dim: #a7abb4; --signal: #4fbf8b; }
+	html, body { margin: 0; background: var(--room); overflow: hidden; height: 100%; }
+	.slate { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: clamp(9px, 0.95vw, 11px); letter-spacing: 0.2em; line-height: 1.5; color: var(--dim); text-transform: uppercase; }
+	.stage { position: fixed; inset: 0; width: 100vw; height: 100vh; background: var(--room); border: none; cursor: pointer; display: block; padding: 0; }
+	.stage:focus-visible { outline: 1.5px solid var(--signal); outline-offset: -2px; }
+	.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+	.captions { position: absolute; left: 0; right: 0; bottom: 0; padding: 34px 21px 14px; background: linear-gradient(to top, color-mix(in srgb, var(--room) 88%, transparent) 0%, color-mix(in srgb, var(--room) 55%, transparent) 45%, transparent 100%); display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 4px 34px; pointer-events: none; }
+	.status { flex: 1 1 auto; min-width: 0; text-align: left; }
+	.verdict { margin-left: auto; text-align: right; white-space: nowrap; color: var(--signal); opacity: 0; transition: opacity 987ms ease; }
+	.stage[aria-pressed="true"] .verdict { opacity: 0.85; }
+	@media (prefers-reduced-motion: reduce) { .verdict { transition: none; } }
+</style>
+<button class="stage" id="stage" aria-pressed="false" aria-label="Closer: an AI agent reports two features done that do nothing; then each change comes to Closer's gate as a ticket, the counterfeit is struck and sent straight back to the agent to rewrite, tested again, and only the change that does what it claims is written to the file. Activate to play.">
+	<canvas id="cv"></canvas>
+	<span class="captions"><span class="slate status" id="status">Two features, done — click to play</span><span class="slate verdict" id="verdict">Struck · rewritten · written</span></span>
+</button>
+<script>
+(() => {
+/* ═══════════════════════════════════════════════════════════════════════
+   CLOSER · v1 — "Nothing Counterfeit Gets Written"
+   Illustrated scene, built on the Cartouche film: the same room at night,
+   the same man, the dog-walker app — now being written by an AI agent.
+
+   Two features come back "done" and do nothing (COUNTERFEITS.md):
+     T6 fake effect      send_photo() logs "sent" and returns True
+     T3 swallowed failure lock_door() catches the jam and says "locked"
+   Then inside the laptop: agent → Closer's gate → the file. Every change
+   is a ticket with its claim. The gate judges its shape (S1), runs every
+   test (E1), and runs its claims for real (C1). A counterfeit is struck
+   at once and goes straight back to the agent to rewrite; the rewrite is
+   tested again; only what does what it claims goes through the door and
+   is written. One strike per task here (the kernel allows two, M3).
+   ═══════════════════════════════════════════════════════════════════════ */
+const stage = document.getElementById('stage');
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const statusEl = document.getElementById('status');
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = (t) => { t = clamp(t); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const win = (t, a, b, r) => clamp((t - a) / r) * clamp((b - t) / r);
+const SANS = '"Avenir Next", "Helvetica Neue", -apple-system, "Segoe UI", sans-serif';
+const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+
+/* design space: the lab frame */
+const DW = 1440, DH = 602;
+const INK = '#151413', PAPER = '#f4f0e6', GOLD = '#e8b04a', RED = '#d9533c';
+const LAPIS = '#2f5aa0', OCHRE = '#c9962c', GREEN = '#3f8a5c', RUST = '#b4532f';
+const PASS = '#4fbf8b';
+
+/* ── timeline ─────────────────────────────────────────────────────────── */
+const T = {
+  establish: [0, 0.5],
+  r1: [0.5, 10.5], r2: [10.5, 20.5],
+  bridge: [20.5, 23.6],
+  gate: [23.6, 55.3],
+  use: [55.8, 66.4], reseed: [66.4, 69.0]
+};
+/* the next walk, in seconds from T.use[0]; the door stays shut tonight */
+const U = {
+  ring: 0.4, phoneUp: [0.4, 1.0], phoneDown: [6.2, 6.8],
+  photo: [1.0, 4.0], locked: [4.0, 6.4], clock: [0.0, 4.4], match: [6.4, 10.4],
+  doorOut: [99, 100], doorShut: [99, 100], doorIn: [99, 100], doorShut2: [99, 100],
+  getUp: 99, toBed: [0, 4]
+};
+const us = (t) => t - T.use[0];
+const EP_LEN = T.reseed[1];
+/* sub-beats inside each request window */
+const RB = { type: [0.0, 0.2], meant: [0.24, 0.34], built: [0.5, 0.6], clear: [0.94, 1.0] };
+
+const REQ = [
+  { text: 'Send me a photo from each walk.',
+    said: 'Done — photo sent. Tests pass.', got: 'no photo — it returns True and sends nothing' },
+  { text: 'Lock the door when Rex is home.',
+    said: 'Done — door locked.', got: 'the lock jammed; the code hid it and said "locked"' }
+];
+
+/* ── the gate: two tasks, four tickets ────────────────────────────────── */
+const TASKS = [
+  { fn: 'send_photo()', claim: 'after a walk, a photo reaches the owner’s phone', view: 'phone' },
+  { fn: 'lock_door()', claim: 'when Rex is home, the front door is locked', view: 'door' }
+];
+const CODE = {
+  A1: ['def send_photo(dog, owner):', '    log("photo sent")', '    return True'],
+  A2: ['def send_photo(dog, owner):', '    photo = camera.snap(dog)', '    return phone.send(owner, photo)'],
+  B1: ['def lock_door(door):', '    try:', '        door.lock()', '    except LockJam:', '        pass', '    return "locked"'],
+  B2: ['def lock_door(door):', '    door.lock()', '    if not door.is_locked():', '        raise LockFailed(door)', '    return "locked"']
+};
+const ATT = [
+  { task: 0, code: CODE.A1, verdict: 'shape', bad: [1, 2], no: 14,
+    reason: ['fake effect: claims to send a photo,', 'sends nothing — returns True'],
+    d: [['write', 2.6], ['travel', 0.9], ['shape', 1.2], ['strike', 1.0], ['back', 1.2]] },
+  { task: 0, code: CODE.A2, verdict: null, fresh: [1, 2], no: 15,
+    d: [['write', 2.4], ['travel', 0.9], ['shape', 0.9], ['tests', 0.9], ['claims', 1.8], ['lift', 0.6], ['through', 1.2], ['land', 0.8]] },
+  { task: 1, code: CODE.B1, verdict: 'claims', bad: [1, 3, 4, 5], no: 16,
+    reason: ['swallowed failure: the lock jammed,', 'it said "locked" anyway'],
+    d: [['write', 2.2], ['travel', 0.8], ['shape', 0.7], ['tests', 0.7], ['claims', 1.6], ['strike', 0.9], ['back', 1.0]] },
+  { task: 1, code: CODE.B2, verdict: null, fresh: [2, 3], no: 17,
+    d: [['write', 1.8], ['travel', 0.8], ['shape', 0.6], ['tests', 0.6], ['claims', 1.4], ['lift', 0.5], ['through', 1.0], ['land', 0.7]] }
+];
+{
+  let acc = T.gate[0];
+  ATT.forEach(a => { a.t0 = acc; a.ph = {}; a.d.forEach(([n, d]) => { a.ph[n] = [acc, acc + d]; acc += d; }); a.t1 = acc; });
+}
+const CHECKS = [
+  { k: 'shape', name: 'SHAPE', what: 'what the change introduces' },
+  { k: 'tests', name: 'TESTS', what: 'every test in the tree' },
+  { k: 'claims', name: 'CLAIMS', what: 'run for real' }
+];
+
+/* ── state ────────────────────────────────────────────────────────────── */
+let W = 0, H = 0, DPR = 1;
+let engaged = false, e = 0, tweenFrom = 0, tweenStart = -1, tweenDur = 2584;
+let storyT = 0, lastNow = null, looped = false, leanT = 0, lean = 0;
+function toggle() {
+  engaged = !engaged;
+  tweenFrom = e; tweenStart = performance.now();
+  tweenDur = engaged ? 2584 : 987;
+  stage.setAttribute('aria-pressed', String(engaged));
+  if (REDUCED) { e = engaged ? 1 : 0; tweenStart = -1; }
+}
+stage.addEventListener('click', toggle);
+stage.addEventListener('mousemove', (ev) => { const r = stage.getBoundingClientRect(); leanT = ((ev.clientX - r.left) / r.width - 0.5) * 2; });
+stage.addEventListener('mouseleave', () => { leanT = 0; });
+
+/* ── small drawing helpers ────────────────────────────────────────────── */
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function txt(s, x, y, fill, size, weight = 500, align = 'left', font = SANS) {
+  ctx.font = `${weight} ${size}px ${font}`; ctx.textAlign = align; ctx.fillStyle = fill; ctx.fillText(s, x, y); ctx.textAlign = 'left';
+}
+function typed(s, u) { return s.slice(0, Math.round(s.length * clamp(u))); }
+function limb(ax, ay, bx, by, wa, wb, col) {
+  const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1;
+  const nx = -dy / L, ny = dx / L;
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  ctx.moveTo(ax + nx * wa / 2, ay + ny * wa / 2); ctx.lineTo(bx + nx * wb / 2, by + ny * wb / 2);
+  ctx.lineTo(bx - nx * wb / 2, by - ny * wb / 2); ctx.lineTo(ax - nx * wa / 2, ay - ny * wa / 2);
+  ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(ax, ay, wa / 2, 0, Math.PI * 2); ctx.arc(bx, by, wb / 2, 0, Math.PI * 2); ctx.fill();
+}
+
+/* ── little people and dogs (balloons + the app film): side view, facing right ── */
+function person(x, y, h, o = {}) {
+  const ph = o.ph || 0, stp = o.step == null ? 0 : o.step;
+  const sw = Math.sin(ph) * stp;
+  const col = o.col || '#4f6f8f', legs = o.legs || '#2d3038', skin = o.skin || '#c99a7c', hair = o.hair || '#2a1d17';
+  const hipY = y - h * 0.48, shY = y - h * 0.8;
+  const lean = o.lean || 0;
+  for (const side of [-1, 1]) {
+    const a = side * sw * 0.45;
+    const kx = x + Math.sin(a) * h * 0.25, ky = hipY + Math.cos(a) * h * 0.24;
+    const fa = a - Math.abs(a) * 0.6;
+    const fx = kx + Math.sin(fa) * h * 0.24, fy = Math.min(y - h * 0.01, ky + Math.cos(fa) * h * 0.24);
+    limb(x, hipY, kx, ky, h * 0.085, h * 0.065, side < 0 ? '#24262d' : legs);
+    limb(kx, ky, fx, fy, h * 0.065, h * 0.05, side < 0 ? '#24262d' : legs);
+    ctx.fillStyle = '#18161a'; ctx.beginPath(); ctx.ellipse(fx + h * 0.025, fy + h * 0.005, h * 0.045, h * 0.018, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  ctx.moveTo(x - h * 0.07, hipY + h * 0.02); ctx.lineTo(x - h * 0.08 + lean, shY + h * 0.03);
+  ctx.quadraticCurveTo(x + lean, shY - h * 0.03, x + h * 0.08 + lean, shY + h * 0.03);
+  ctx.lineTo(x + h * 0.07, hipY + h * 0.02); ctx.closePath(); ctx.fill();
+  /* arm: forward, bent, to the leash hand */
+  const sx = x + h * 0.02 + lean, sy = shY + h * 0.05;
+  const hand = o.hand || [x + h * 0.2 + lean, y - h * 0.5];
+  const ex = lerp(sx, hand[0], 0.45) - h * 0.02, ey = lerp(sy, hand[1], 0.55) + h * 0.06;
+  limb(sx, sy, ex, ey, h * 0.06, h * 0.05, col);
+  limb(ex, ey, hand[0], hand[1], h * 0.05, h * 0.04, col);
+  ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(hand[0], hand[1], h * 0.026, 0, Math.PI * 2); ctx.fill();
+  limb(x + lean, shY, x + h * 0.01 + lean, shY - h * 0.05, h * 0.045, h * 0.04, skin);
+  const hx = x + h * 0.02 + lean, hy = shY - h * 0.11;
+  ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(hx, hy, h * 0.065, h * 0.075, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(hx + h * 0.065, hy + h * 0.008, h * 0.014, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = hair;
+  ctx.beginPath(); ctx.ellipse(hx - h * 0.015, hy - h * 0.02, h * 0.064, h * 0.06, 0, Math.PI * 0.9, Math.PI * 2.15); ctx.fill();
+  if (o.cap) { ctx.fillStyle = o.cap; ctx.beginPath(); ctx.ellipse(hx, hy - h * 0.045, h * 0.068, h * 0.038, 0, Math.PI, 0); ctx.fill(); ctx.fillRect(hx, hy - h * 0.05, h * 0.1, h * 0.016); }
+  ctx.fillStyle = '#1e1714'; ctx.beginPath(); ctx.arc(hx + h * 0.035, hy - h * 0.005, h * 0.008, 0, Math.PI * 2); ctx.fill();
+  if (o.collar) { ctx.strokeStyle = RED; ctx.lineWidth = h * 0.018; ctx.beginPath(); ctx.moveTo(x - h * 0.02 + lean, shY - h * 0.03); ctx.lineTo(x + h * 0.04 + lean, shY - h * 0.04); ctx.stroke(); }
+  return { hand, neck: [x + h * 0.03 + lean, shY - h * 0.035], head: [hx, hy] };
+}
+function dog(x, y, s, o = {}) {
+  const ph = o.ph || 0, stp = o.step == null ? 0 : o.step;
+  const coat = o.coat || '#b9844f', dark = '#7a5232';
+  ctx.lineCap = 'round';
+  /* legs */
+  [[-13, 0], [-8, Math.PI], [11, Math.PI], [15, 0]].forEach(([lx, off], i) => {
+    const a = Math.sin(ph + off) * 0.45 * stp;
+    const lift = o.limp && i === 3 ? 4 * s : 0;
+    ctx.strokeStyle = i % 2 ? dark : coat; ctx.lineWidth = 3.4 * s;
+    ctx.beginPath(); ctx.moveTo(x + lx * s, y - 11 * s); ctx.lineTo(x + lx * s + Math.sin(a) * 10 * s, y - 1 * s - lift); ctx.stroke();
+  });
+  /* tail */
+  const wag = Math.sin((o.wag || 0) * 14) * 0.5;
+  ctx.strokeStyle = coat; ctx.lineWidth = 3 * s;
+  ctx.beginPath(); ctx.moveTo(x - 17 * s, y - 16 * s); ctx.quadraticCurveTo(x - 26 * s, y - 22 * s, x - 27 * s + wag * 6 * s, y - 31 * s); ctx.stroke();
+  /* body */
+  ctx.fillStyle = coat; ctx.beginPath(); ctx.ellipse(x, y - 16 * s, 19 * s, 8 * s, 0, 0, Math.PI * 2); ctx.fill();
+  if (o.coatOn) { ctx.fillStyle = o.coatOn; ctx.beginPath(); ctx.ellipse(x - 1 * s, y - 18 * s, 15 * s, 7 * s, 0, Math.PI, Math.PI * 2.02); ctx.fill(); ctx.fillRect(x - 16 * s, y - 19 * s, 31 * s, 5 * s); }
+  if (o.costume === 'bun') {
+    ctx.fillStyle = '#d9a35c'; ctx.beginPath(); ctx.ellipse(x - 1 * s, y - 13 * s, 22 * s, 6 * s, 0, 0, Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x - 1 * s, y - 20 * s, 21 * s, 5 * s, 0, Math.PI, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#e8c53a'; ctx.lineWidth = 1.8 * s; ctx.beginPath();
+    for (let k = 0; k <= 8; k++) ctx.lineTo(x - 15 * s + k * 3.6 * s, y - 22 * s + (k % 2 ? 2 : -1) * s);
+    ctx.stroke();
+  }
+  if (o.costume === 'bee') {
+    ctx.fillStyle = '#e3b232'; ctx.beginPath(); ctx.ellipse(x, y - 16 * s, 19.5 * s, 8.5 * s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = INK; [-8, 0, 8].forEach(k => ctx.fillRect(x + k * s - 2 * s, y - 24 * s, 4 * s, 16 * s));
+    ctx.fillStyle = 'rgba(220,235,250,0.85)'; ctx.beginPath(); ctx.ellipse(x - 4 * s, y - 28 * s, 6 * s, 4 * s, -0.5, 0, Math.PI * 2); ctx.ellipse(x + 4 * s, y - 28 * s, 6 * s, 4 * s, 0.5, 0, Math.PI * 2); ctx.fill();
+  }
+  if (o.costume === 'cape') {
+    ctx.fillStyle = '#b8323a'; ctx.beginPath(); ctx.moveTo(x + 12 * s, y - 23 * s); ctx.lineTo(x - 22 * s, y - 20 * s); ctx.lineTo(x - 16 * s, y - 9 * s); ctx.lineTo(x + 10 * s, y - 14 * s); ctx.fill();
+  }
+  /* head */
+  const hx = x + 21 * s, hy = y - 24 * s + (o.limp ? 2 * s : 0);
+  ctx.fillStyle = coat; ctx.beginPath(); ctx.ellipse(hx, hy, 7.5 * s, 7 * s, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(hx + 7 * s, hy + 2 * s, 5 * s, 3.4 * s, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = dark; ctx.beginPath(); ctx.ellipse(hx - 3 * s, hy - 2 * s, 3 * s, 6 * s, 0.4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1a1412'; ctx.beginPath(); ctx.arc(hx + 11.5 * s, hy + 1 * s, 1.6 * s, 0, Math.PI * 2); ctx.arc(hx + 3 * s, hy - 2 * s, 1.1 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = RED; ctx.lineWidth = 2 * s; ctx.beginPath(); ctx.moveTo(hx - 6 * s, hy + 4 * s); ctx.lineTo(hx - 1 * s, hy + 6 * s); ctx.stroke();
+  return { collar: [hx - 4 * s, hy + 5 * s] };
+}
+function leash(a, b, sag = 10) {
+  ctx.strokeStyle = RED; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo((a[0] + b[0]) / 2, Math.max(a[1], b[1]) + sag, b[0], b[1]); ctx.stroke();
+}
+function tag(x, y, s, label, col = '#f7e7b0') {
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = col; ctx.strokeStyle = INK; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(10, -9); ctx.lineTo(10 + s, -9); ctx.lineTo(10 + s, 9); ctx.lineTo(10, 9); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(7, 0, 1.6, 0, Math.PI * 2); ctx.fill();
+  txt(label, 13, 4, INK, 10, 700);
+  ctx.restore();
+}
+function phone(x, y, w, h, draw) {
+  ctx.fillStyle = '#1d1d22'; rr(x, y, w, h, 7); ctx.fill();
+  ctx.fillStyle = '#eef0f2'; rr(x + 4, y + 8, w - 8, h - 16, 3); ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.rect(x + 4, y + 8, w - 8, h - 16); ctx.clip(); draw(x + 4, y + 8, w - 8, h - 16); ctx.restore();
+}
+function bubble(x, y, s, col = '#ffffff') {
+  ctx.font = `600 11px ${SANS}`;
+  const w = ctx.measureText(s).width + 16;
+  ctx.fillStyle = col; rr(x, y, w, 22, 9); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1; rr(x + 0.5, y + 0.5, w - 1, 21, 9); ctx.stroke();
+  txt(s, x + 8, y + 15, INK, 11, 600);
+  return w;
+}
+
+/* ── thought balloons ─────────────────────────────────────────────────── */
+function cloudPath(cx, cy, w, h, grow) {
+  const n = 14;
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const r = (i % 2 ? 0.17 : 0.2) * Math.min(w, h * 1.6);
+    pts.push([cx + Math.cos(a) * (w / 2 - r * 0.55), cy + Math.sin(a) * (h / 2 - r * 0.55), r]);
+  }
+  return pts;
+}
+function balloon(cx, cy, w, h, k, trail, who, label, content) {
+  if (k <= 0) return;
+  const g = ease(k);
+  /* the trail of little puffs, toward the thinker */
+  trail.forEach(([x, y, r], i) => {
+    const a = clamp(k * 4 - i);
+    if (a <= 0) return;
+    ctx.fillStyle = `rgba(244,240,230,${a})`; ctx.strokeStyle = `rgba(21,20,19,${0.85 * a})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  });
+  const bk = clamp(k * 1.6 - 0.5);
+  if (bk <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = ease(bk);
+  ctx.translate(cx, cy); ctx.scale(0.7 + 0.3 * ease(bk), 0.7 + 0.3 * ease(bk)); ctx.translate(-cx, -cy);
+  const pts = cloudPath(cx, cy, w, h);
+  ctx.fillStyle = INK;
+  pts.forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r + 2.2, 0, Math.PI * 2); ctx.fill(); });
+  ctx.beginPath(); ctx.ellipse(cx, cy, w / 2 - 6, h / 2 - 6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = PAPER;
+  pts.forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); });
+  ctx.beginPath(); ctx.ellipse(cx, cy, w / 2 - 8, h / 2 - 8, 0, 0, Math.PI * 2); ctx.fill();
+  /* whose thought */
+  const lc = who === 'user' ? '#5a6b7c' : '#6c5aa8';
+  ctx.font = `700 10px ${MONO}`;
+  const lw = ctx.measureText(label).width + 16;
+  ctx.fillStyle = lc; rr(cx - lw / 2, cy - h / 2 - 10, lw, 18, 9); ctx.fill();
+  txt(label, cx, cy - h / 2 + 3, '#ffffff', 10, 700, 'center', MONO);
+  ctx.save();
+  ctx.beginPath(); ctx.ellipse(cx, cy, w / 2 - 10, h / 2 - 10, 0, 0, Math.PI * 2); ctx.clip();
+  const zs = who === 'user' ? 1.24 : 1.1;
+  ctx.translate(cx, cy - 4); ctx.scale(zs, zs); ctx.translate(-cx, -cy);
+  content(cx, cy);
+  ctx.restore();
+  ctx.restore();
+}
+
+/* balloon pictures, centred on (cx, cy) */
+/* ── the room (night, one lamp, the laptop's glow) ───────────────────── */
+const HEAD = [962, 268];
+const DOOR = { open: 0 };
+function drawRoom(t, now) {
+  /* wall */
+  let g = ctx.createLinearGradient(0, 0, 0, 470);
+  g.addColorStop(0, '#2b2420'); g.addColorStop(1, '#3a3029');
+  ctx.fillStyle = g; ctx.fillRect(-400, -200, 2240, 670);
+  /* lamp pool on the wall */
+  g = ctx.createRadialGradient(1290, 250, 10, 1290, 250, 420);
+  g.addColorStop(0, 'rgba(255,196,120,0.26)'); g.addColorStop(1, 'rgba(255,196,120,0)');
+  ctx.fillStyle = g; ctx.fillRect(700, -100, 1100, 600);
+  /* window: night, the moon, a few lit windows across the street */
+  ctx.fillStyle = '#1b1f2c'; ctx.fillRect(110, 70, 270, 260);
+  g = ctx.createLinearGradient(0, 78, 0, 322);
+  g.addColorStop(0, '#16203a'); g.addColorStop(1, '#2c3552');
+  ctx.fillStyle = g; ctx.fillRect(118, 78, 254, 244);
+  ctx.fillStyle = '#f1ead2'; ctx.beginPath(); ctx.arc(318, 120, 15, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1f2433'; ctx.fillRect(118, 236, 70, 86); ctx.fillRect(200, 210, 80, 112); ctx.fillRect(292, 250, 80, 72);
+  [[132, 252], [160, 270], [214, 226], [250, 248], [226, 280], [306, 266], [338, 290]].forEach(([x, y], i) => {
+    ctx.fillStyle = i % 3 ? 'rgba(255,205,120,0.8)' : 'rgba(170,200,255,0.55)'; ctx.fillRect(x, y, 8, 10);
+  });
+  ctx.fillStyle = '#4a3d33'; ctx.fillRect(110, 196, 270, 6); ctx.fillRect(242, 70, 6, 260);
+  ctx.fillStyle = '#56473b'; ctx.fillRect(100, 326, 290, 10);
+  /* a framed photo and a shelf */
+  ctx.fillStyle = '#4b3e34'; ctx.fillRect(560, 120, 92, 70); ctx.fillStyle = '#a8b7a2'; ctx.fillRect(566, 126, 80, 58);
+  ctx.fillStyle = '#d0614a'; ctx.beginPath(); ctx.arc(596, 160, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#b9844f'; ctx.beginPath(); ctx.ellipse(620, 172, 10, 6, 0, 0, Math.PI * 2); ctx.fill();
+  /* the front door, and the clock above it */
+  const u = us(t);
+  const open = t < T.use[0] ? 0
+    : Math.max(ease(seg(u, U.doorOut[0], U.doorOut[1])) * (1 - ease(seg(u, U.doorShut[0], U.doorShut[1]))),
+               ease(seg(u, U.doorIn[0], U.doorIn[1])) * (1 - ease(seg(u, U.doorShut2[0], U.doorShut2[1]))));
+  ctx.fillStyle = '#4a3d33'; ctx.fillRect(672, 228, 120, 240);
+  ctx.fillStyle = '#120e0c'; ctx.fillRect(682, 238, 100, 230);
+  g = ctx.createLinearGradient(0, 238, 0, 468);
+  g.addColorStop(0, 'rgba(60,70,100,0.5)'); g.addColorStop(1, 'rgba(30,30,40,0.2)');
+  ctx.fillStyle = g; ctx.fillRect(682, 238, 100, 230);
+  const dw = 100 * (1 - 0.82 * open);
+  ctx.fillStyle = '#5a4535'; ctx.fillRect(682, 238, dw, 230);
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 2;
+  ctx.strokeRect(682 + dw * 0.14, 256, dw * 0.72, 86); ctx.strokeRect(682 + dw * 0.14, 360, dw * 0.72, 90);
+  ctx.fillStyle = GOLD; ctx.beginPath(); ctx.arc(682 + dw * 0.88, 356, 3.4, 0, Math.PI * 2); ctx.fill();
+  DOOR.open = open;
+  const mins = t < T.use[0] ? 9 * 60 + 14 : 18 * 60 + Math.round(32 * ease(seg(u, U.clock[0], U.clock[1])));
+  ctx.fillStyle = '#efe7d6'; ctx.beginPath(); ctx.arc(732, 186, 20, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#3a2f27'; ctx.lineWidth = 3; ctx.stroke();
+  const ha = ((mins / 60) % 12) / 12 * Math.PI * 2 - Math.PI / 2, ma = (mins % 60) / 60 * Math.PI * 2 - Math.PI / 2;
+  ctx.lineCap = 'round'; ctx.strokeStyle = INK;
+  ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(732, 186); ctx.lineTo(732 + Math.cos(ha) * 10, 186 + Math.sin(ha) * 10); ctx.stroke();
+  ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(732, 186); ctx.lineTo(732 + Math.cos(ma) * 15, 186 + Math.sin(ma) * 15); ctx.stroke();
+  /* floor */
+  g = ctx.createLinearGradient(0, 470, 0, 640);
+  g.addColorStop(0, '#2a211b'); g.addColorStop(1, '#1d1713');
+  ctx.fillStyle = g; ctx.fillRect(-400, 470, 2240, 300);
+  ctx.fillStyle = '#4a3d33'; ctx.fillRect(-400, 462, 2240, 9);
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1;
+  for (let k = 0; k < 6; k++) { ctx.beginPath(); ctx.moveTo(-400, 492 + k * 24); ctx.lineTo(1840, 492 + k * 24); ctx.stroke(); }
+  /* rug */
+  ctx.fillStyle = '#4b3a3a'; ctx.beginPath(); ctx.ellipse(560, 520, 260, 34, 0, 0, Math.PI * 2); ctx.fill();
+  /* floor lamp */
+  ctx.strokeStyle = '#2a2420'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(1330, 466); ctx.lineTo(1330, 210); ctx.stroke();
+  ctx.fillStyle = '#2a2420'; ctx.beginPath(); ctx.ellipse(1330, 468, 26, 5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#e8c48a'; ctx.beginPath(); ctx.moveTo(1300, 214); ctx.lineTo(1360, 214); ctx.lineTo(1348, 176); ctx.lineTo(1312, 176); ctx.closePath(); ctx.fill();
+  g = ctx.createRadialGradient(1330, 214, 4, 1330, 214, 120);
+  g.addColorStop(0, 'rgba(255,214,150,0.45)'); g.addColorStop(1, 'rgba(255,214,150,0)');
+  ctx.fillStyle = g; ctx.fillRect(1200, 100, 260, 260);
+}
+/* the dog in its bed: asleep, ears up when the balloons are about dogs */
+function drawRoomDog(t, now) {
+  const x = 520, y = 470;
+  ctx.fillStyle = '#5b4a5e'; ctx.beginPath(); ctx.ellipse(x, y - 8, 70, 18, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#6c5a70'; ctx.beginPath(); ctx.ellipse(x, y - 14, 58, 12, 0, 0, Math.PI * 2); ctx.fill();
+  if (t >= T.use[0] && us(t) > U.getUp && us(t) < U.toBed[1]) return;
+  const alert = Math.max(win(t, T.r1[0] + 2.4, T.r1[1] - 0.6, 0.6), 0, win(t, T.use[0] + U.ring - 0.3, T.use[0] + U.getUp + 0.2, 0.3), win(t, T.use[0] + U.toBed[1], EP_LEN, 0.6));
+  const breathe = Math.sin(now / 900) * 1.2;
+  ctx.fillStyle = '#b9844f'; ctx.beginPath(); ctx.ellipse(x - 4, y - 26 + breathe * 0.3, 40, 15 + breathe * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#a87745'; ctx.beginPath(); ctx.ellipse(x - 30, y - 30, 14, 10, 0, 0, Math.PI * 2); ctx.fill();
+  /* head: resting on paws, lifts */
+  const hx = x + 34, hy = y - 26 - alert * 12;
+  ctx.fillStyle = '#b9844f'; ctx.beginPath(); ctx.ellipse(hx, hy, 13, 11, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(hx + 12, hy + 4, 8, 6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#7a5232'; ctx.beginPath(); ctx.ellipse(hx - 5, hy - 4 - alert * 4, 5, 10 - alert * 1, 0.4 - alert * 0.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1a1412'; ctx.beginPath(); ctx.arc(hx + 19, hy + 3, 2.4, 0, Math.PI * 2); ctx.fill();
+  if (alert > 0.5) { ctx.beginPath(); ctx.arc(hx + 5, hy - 2, 1.8, 0, Math.PI * 2); ctx.fill(); }
+  else { ctx.strokeStyle = '#1a1412'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(hx + 5, hy - 2, 2.2, 0.2, Math.PI - 0.2); ctx.stroke(); }
+  /* tail: thumps at the end */
+  const wag = win(t, T.use[0] + U.toBed[1] + 0.2, EP_LEN, 0.6) * Math.sin(now / 90) * 0.6;
+  ctx.strokeStyle = '#b9844f'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x - 42, y - 22); ctx.quadraticCurveTo(x - 62, y - 22 - wag * 14, x - 66, y - 34 - wag * 18); ctx.stroke();
+}
+/* desk, laptop, chair */
+function drawDesk(t, now, glow) {
+  /* chair, behind the user */
+  ctx.fillStyle = '#23232a'; rr(880, 300, 22, 100, 8); ctx.fill();
+  ctx.fillStyle = '#2b2b33'; rr(888, 392, 92, 14, 6); ctx.fill();
+  ctx.strokeStyle = '#1b1b20'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(930, 406); ctx.lineTo(930, 448); ctx.stroke();
+  ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(894, 458); ctx.lineTo(966, 458); ctx.stroke();
+  ctx.fillStyle = '#111'; [[894, 462], [930, 464], [966, 462]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); });
+  /* desk */
+  ctx.fillStyle = '#5a4535'; ctx.fillRect(990, 368, 300, 12);
+  ctx.fillStyle = '#4a382b'; ctx.fillRect(1000, 380, 12, 86); ctx.fillRect(1268, 380, 12, 86);
+  ctx.fillStyle = '#3e3026'; ctx.fillRect(1180, 380, 90, 50);
+  /* mug */
+  ctx.fillStyle = '#c4532d'; rr(1226, 346, 18, 22, 3); ctx.fill();
+  ctx.strokeStyle = '#c4532d'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(1246, 357, 5, -1.2, 1.2); ctx.stroke();
+  /* laptop: base on the desk, screen turned toward the user, three-quarter to us */
+  ctx.fillStyle = '#9aa0a8'; ctx.beginPath(); ctx.moveTo(1030, 368); ctx.lineTo(1140, 368); ctx.lineTo(1134, 362); ctx.lineTo(1040, 362); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#7d838c'; ctx.beginPath(); ctx.moveTo(1124, 364); ctx.lineTo(1150, 290); ctx.lineTo(1158, 292); ctx.lineTo(1134, 366); ctx.closePath(); ctx.fill();
+  /* the screen's face, seen edge-on: a sliver of light */
+  ctx.fillStyle = `rgba(220,232,255,${0.65 + 0.35 * glow})`;
+  ctx.beginPath(); ctx.moveTo(1122, 362); ctx.lineTo(1147, 292); ctx.lineTo(1150, 293); ctx.lineTo(1126, 363); ctx.closePath(); ctx.fill();
+  const g = ctx.createRadialGradient(1110, 330, 4, 1060, 320, 190);
+  g.addColorStop(0, `rgba(190,210,255,${0.22 + 0.12 * glow})`); g.addColorStop(1, 'rgba(190,210,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(860, 160, 320, 260);
+}
+/* the user: seated, facing the laptop — built like a person */
+function drawUser(t, now, react, phoneK = 0) {
+  const P = { top: '#4f6b86', topDark: '#36495c', legs: '#2c2f38', skin: '#c99a7c', hair: '#2a1d17' };
+  const typing = [T.r1, T.r2].some(w => t > w[0] && t < w[0] + (w[1] - w[0]) * RB.type[1]);
+  const tap = typing ? Math.sin(now / 60) * 1.6 : 0;
+  const slump = react * 6;
+  /* far leg */
+  limb(940, 396, 1000, 400, 26, 20, '#24262d');
+  limb(1000, 400, 1002, 458, 20, 15, '#24262d');
+  ctx.fillStyle = '#121014'; ctx.beginPath(); ctx.ellipse(1012, 462, 15, 6, 0, 0, Math.PI * 2); ctx.fill();
+  /* far arm */
+  limb(944, 314 + slump, 974, 352, 18, 15, P.topDark);
+  limb(974, 352, 1046, 362 + tap * 0.5, 15, 12, P.topDark);
+  /* torso */
+  const g = ctx.createLinearGradient(910, 0, 970, 0);
+  g.addColorStop(0, P.topDark); g.addColorStop(1, P.top);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(918, 400); ctx.lineTo(912, 330 + slump);
+  ctx.quadraticCurveTo(924, 300 + slump, 952, 302 + slump);
+  ctx.quadraticCurveTo(968, 308 + slump, 966, 330 + slump);
+  ctx.lineTo(962, 400); ctx.closePath(); ctx.fill();
+  /* near leg: thigh to the knee, shin down, foot */
+  limb(936, 392, 1002, 392, 30, 22, P.legs);
+  limb(1002, 392, 996, 456, 22, 16, P.legs);
+  ctx.fillStyle = '#18161a'; ctx.beginPath(); ctx.ellipse(1006, 462, 16, 6.5, 0, 0, Math.PI * 2); ctx.fill();
+  /* neck, head */
+  const tilt = react * 0.12;
+  ctx.save();
+  ctx.translate(948, 300 + slump); ctx.rotate(tilt); ctx.translate(-948, -300 - slump);
+  limb(946, 304 + slump, 952, 284 + slump, 14, 13, P.skin);
+  const hx = HEAD[0], hy = HEAD[1] + slump;
+  ctx.fillStyle = P.skin;
+  ctx.beginPath(); ctx.ellipse(hx, hy, 19, 23, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(hx + 18, hy + 3, 4, 5, 0, 0, Math.PI * 2); ctx.fill();   /* nose */
+  ctx.beginPath(); ctx.ellipse(hx - 4, hy + 2, 4.4, 6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = P.hair;
+  ctx.beginPath(); ctx.ellipse(hx - 6, hy - 6, 19, 19, 0, Math.PI * 0.75, Math.PI * 2.08); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(hx - 14, hy + 2, 9, 15, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = P.skin; ctx.beginPath(); ctx.ellipse(hx - 3, hy + 3, 4, 6, 0, 0, Math.PI * 2); ctx.fill();  /* ear */
+  ctx.fillStyle = '#2a1d17'; ctx.beginPath(); ctx.arc(hx + 10, hy - 2, 1.8, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#2a1d17'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(hx + 6, hy - 9 - react * 2); ctx.lineTo(hx + 14, hy - 8 + react * 1); ctx.stroke();
+  /* screen light on the face */
+  ctx.fillStyle = 'rgba(200,220,255,0.18)'; ctx.beginPath(); ctx.ellipse(hx + 9, hy + 2, 10, 20, 0, -Math.PI / 2, Math.PI / 2); ctx.fill();
+  ctx.restore();
+  /* near arm: shoulder → elbow → hand on the keys */
+  const ex = lerp(978, 972, phoneK), ey = lerp(356, 352, phoneK);
+  const hx2 = lerp(1058, 1004, phoneK), hy2 = lerp(364 + tap, 300, phoneK);
+  limb(950, 318 + slump, ex, ey, 19, 16, P.top);
+  limb(ex, ey, hx2 - 6 * (1 - phoneK), hy2, 16, 12, P.top);
+  if (phoneK > 0.05) {
+    ctx.save(); ctx.translate(hx2 + 4, hy2 - 10); ctx.rotate(-0.35);
+    ctx.fillStyle = '#1d1d22'; rr(-6, -13, 12, 24, 3); ctx.fill();
+    ctx.fillStyle = `rgba(220,232,255,${0.9 * phoneK})`; rr(-4.6, -11, 9.2, 19, 2); ctx.fill();
+    ctx.restore();
+    const g2 = ctx.createRadialGradient(hx2, hy2 - 14, 2, hx2, hy2 - 14, 60);
+    g2.addColorStop(0, `rgba(190,210,255,${0.25 * phoneK})`); g2.addColorStop(1, 'rgba(190,210,255,0)');
+    ctx.fillStyle = g2; ctx.fillRect(hx2 - 60, hy2 - 74, 120, 120);
+  }
+  ctx.fillStyle = P.skin; ctx.beginPath(); ctx.ellipse(hx2, hy2, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+}
+/* the request, typed — a message card above the desk */
+function drawRequest(t, i) {
+  const w = T['r' + (i + 1)];
+  const u = seg(t, w[0], w[1]);
+  const R = REQ[i];
+  const out = 1 - ease(seg(u, RB.clear[0], RB.clear[1]));
+  const tk = seg(u, RB.type[0], RB.type[1]);
+  if (tk <= 0 || out <= 0) return;
+  ctx.save(); ctx.globalAlpha = out;
+  const s = typed(R.text, tk);
+  ctx.font = `600 22px ${SANS}`;
+  const fw = ctx.measureText(R.text).width + 48;
+  const x = 720 - fw / 2, y = 24;
+  ctx.fillStyle = 'rgba(244,240,230,0.97)'; rr(x, y, fw, 48, 12); ctx.fill();
+  ctx.fillStyle = '#5a6b7c'; rr(x + 12, y + 12, 24, 24, 12); ctx.fill();
+  txt(String(i + 1), x + 24, y + 29, '#ffffff', 13, 800, 'center');
+  txt(s, x + 46, y + 32, INK, 22, 600);
+  if (tk < 1 && Math.floor(NOW.ms / 300) % 2) { ctx.font = `600 22px ${SANS}`; ctx.fillStyle = INK; ctx.fillRect(x + 48 + ctx.measureText(s).width, y + 14, 2, 22); }
+  ctx.restore();
+}
+
+/* ── balloon pictures, centred on (cx, cy) ───────────────────────────── */
+const NOW = { t: 0, ms: 0 };
+/* a small editor card: the agent's code and what it reported */
+function codeCard(cx, cy, lines, report, ok) {
+  const w = 244, lh = 15, h = 26 + lines.length * lh;
+  const x = cx - w / 2, y = cy - h / 2 - 16;
+  ctx.fillStyle = '#23222b'; rr(x, y, w, h, 7); ctx.fill();
+  ctx.fillStyle = '#e06b5a'; ctx.beginPath(); ctx.arc(x + 11, y + 10, 2.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#e8b04a'; ctx.beginPath(); ctx.arc(x + 20, y + 10, 2.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#4fbf8b'; ctx.beginPath(); ctx.arc(x + 29, y + 10, 2.6, 0, Math.PI * 2); ctx.fill();
+  lines.forEach((l, i) => txt(l, x + 10, y + 30 + i * lh, l.startsWith('def') ? '#f0ebdf' : '#b9c1cf', 10.5, 600, 'left', MONO));
+  const ry = y + h + 8;
+  ctx.font = `700 12px ${SANS}`;
+  const rw = ctx.measureText(report).width + 30;
+  ctx.fillStyle = ok ? '#e6f4ec' : '#e6f4ec'; rr(cx - rw / 2, ry, rw, 24, 12); ctx.fill();
+  txt('✓ ' + report, cx, ry + 16, '#2e7d55', 12, 700, 'center');
+}
+const PICS = [
+  /* 1 · the photo that was never sent */
+  {
+    said(cx, cy) { codeCard(cx, cy, CODE.A1, REQ[0].said, true); },
+    got(cx, cy) {
+      phone(cx - 46, cy - 78, 92, 150, (px, py, pw, ph) => {
+        txt('6:31', px + pw / 2, py + 24, INK, 18, 700, 'center');
+        txt('Tuesday', px + pw / 2, py + 38, '#6b6f78', 9, 600, 'center');
+        ctx.fillStyle = 'rgba(0,0,0,0.06)'; rr(px + 6, py + 56, pw - 12, 34, 6); ctx.fill();
+        txt('No notifications', px + pw / 2, py + 77, '#8a8f98', 9.5, 600, 'center');
+      });
+      txt('the walk ended — no photo', cx, cy + 88, INK, 13, 600, 'center');
+    }
+  },
+  /* 2 · the door it said was locked */
+  {
+    said(cx, cy) { codeCard(cx, cy + 6, CODE.B1, REQ[1].said, true); },
+    got(cx, cy) {
+      const x = cx - 50, y = cy - 72, w = 100, h = 150;
+      ctx.fillStyle = '#4a3d33'; ctx.fillRect(x - 8, y - 8, w + 16, h + 8);
+      ctx.fillStyle = '#120e0c'; ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = 'rgba(255,214,150,0.25)'; ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = '#5a4535'; ctx.fillRect(x, y, w * 0.34, h);
+      /* the lock, jammed */
+      ctx.fillStyle = RED; rr(x + w * 0.34 + 6, y + 70, 18, 14, 2); ctx.fill();
+      ctx.strokeStyle = RED; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.arc(x + w * 0.34 + 15, y + 68, 6, Math.PI, Math.PI * 1.75); ctx.stroke();
+      dog(x + 70, y + h, 1.1, { wag: NOW.t });
+      txt('door: open', cx, cy + 92, RED, 13, 700, 'center');
+    }
+  },
+  /* the end · what the agent says is what happens */
+  {
+    said(cx, cy) { codeCard(cx, cy, CODE.A2, 'Photo sent', true); },
+    got(cx, cy) {
+      phone(cx - 46, cy - 78, 92, 150, (px, py, pw, ph) => {
+        txt('6:21', px + pw / 2, py + 22, INK, 16, 700, 'center');
+        ctx.fillStyle = '#ffffff'; rr(px + 5, py + 32, pw - 10, 84, 6); ctx.fill();
+        ctx.fillStyle = '#bfe0ef'; ctx.fillRect(px + 9, py + 36, pw - 18, 46);
+        ctx.fillStyle = '#9cc58a'; ctx.fillRect(px + 9, py + 66, pw - 18, 16);
+        dog(px + pw / 2 - 4, py + 80, 0.8, { wag: NOW.t });
+        txt('Rex · the park', px + 10, py + 96, INK, 8.5, 700);
+        txt('photo from Jo', px + 10, py + 108, '#6b6f78', 8, 600);
+      });
+      txt('the photo arrives', cx, cy + 88, INK, 13, 600, 'center');
+    }
+  }
+];
+function drawBalloons(t, i, uOverride) {
+  const w = T['r' + (i + 1)];
+  const u = uOverride == null ? seg(t, w[0], w[1]) : uOverride;
+  const out = uOverride == null ? 1 - ease(seg(u, RB.clear[0], RB.clear[1])) : 1;
+  if (out <= 0) return;
+  const kb = seg(u, RB.meant[0], RB.meant[1] + 0.06);
+  const km = seg(u, RB.built[0], RB.built[1] + 0.06);
+  const pic = PICS[uOverride == null ? i : 2];
+  ctx.save(); ctx.globalAlpha = out;
+  /* the agent's report, rising off the laptop */
+  balloon(1230, 214, 380, 270, kb, [[1150, 282, 5], [1166, 262, 8], [1182, 238, 10]], 'ai', 'WHAT THE AGENT REPORTED', (cx, cy) => pic.said(cx, cy));
+  /* his thought: what actually happened */
+  balloon(520, 250, 440, 270, km, [[930, 236, 5], [898, 220, 8], [858, 204, 11]], 'user', 'WHAT ACTUALLY HAPPENED', (cx, cy) => pic.got(cx, cy));
+  const nk = ease(seg(u, RB.built[1] + 0.08, RB.built[1] + 0.16));
+  if (nk > 0) {
+    const same = uOverride != null;
+    ctx.fillStyle = same ? `rgba(79,191,139,${nk})` : `rgba(217,83,60,${nk})`;
+    ctx.beginPath(); ctx.arc(866, 120, 20, 0, Math.PI * 2); ctx.fill();
+    txt(same ? '=' : '≠', 866, 130, same ? INK : '#ffffff', 28, 800, 'center');
+  }
+  ctx.restore();
+}
+
+/* ── inside the laptop: agent → Closer's gate → the file ──────────────── */
+const AG = { x: 26, y: 46, w: 452, h: 516 };
+const GT = { x: 496, y: 46, w: 448, h: 516 };
+const FL = { x: 962, y: 46, w: 452, h: 516 };
+const SPOT_A = [252, 474], SPOT_G = [612, 470], SPOT_D = [846, 470], SPOT_F = [1188, 470];
+const DOOR_G = { x: 806, y: 330, w: 84, h: 214 };
+
+function attemptAt(t) {
+  let k = 0;
+  for (let i = 0; i < ATT.length; i++) if (t >= ATT[i].t0) k = i;
+  return k;
+}
+const inPh = (a, n, t) => a.ph[n] ? seg(t, a.ph[n][0], a.ph[n][1]) : 0;
+const past = (a, n, t) => a.ph[n] && t >= a.ph[n][1];
+const during = (a, n, t) => a.ph[n] && t >= a.ph[n][0] && t < a.ph[n][1];
+
+function panel(p, title, right, rightCol) {
+  ctx.fillStyle = '#26252e'; rr(p.x, p.y, p.w, p.h, 10); ctx.fill();
+  txt(title, p.x + 16, p.y + 24, 'rgba(167,171,180,0.95)', 11, 700, 'left', MONO);
+  if (right) txt(right, p.x + p.w - 16, p.y + 24, rightCol || 'rgba(167,171,180,0.75)', 10.5, 700, 'right', MONO);
+  ctx.fillStyle = 'rgba(167,171,180,0.22)'; ctx.fillRect(p.x + 16, p.y + 34, p.w - 32, 1);
+}
+function ticketCard(x, y, a, stamp, al = 1) {
+  if (al <= 0) return;
+  ctx.save(); ctx.globalAlpha *= al; ctx.translate(x, y);
+  const w = 176, h = 74;
+  ctx.fillStyle = PAPER; rr(-w / 2, -h / 2, w, h, 6); ctx.fill();
+  ctx.fillStyle = '#d8d1c0'; ctx.fillRect(-w / 2 + 52, -h / 2, 1, h);
+  ctx.setLineDash([2, 3]); ctx.strokeStyle = 'rgba(21,20,19,0.35)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-w / 2 + 52, -h / 2 + 4); ctx.lineTo(-w / 2 + 52, h / 2 - 4); ctx.stroke(); ctx.setLineDash([]);
+  txt('TICKET', -w / 2 + 26, -6, '#6b6f78', 8.5, 700, 'center', MONO);
+  txt('#' + a.no, -w / 2 + 26, 12, INK, 15, 800, 'center', MONO);
+  txt(TASKS[a.task].fn, -w / 2 + 62, -12, INK, 12.5, 700, 'left', MONO);
+  txt('1 claim · ' + a.code.length + ' lines', -w / 2 + 62, 6, '#6b6f78', 10, 600);
+  txt('signed by gc', -w / 2 + 62, 22, '#6b6f78', 10, 600);
+  if (stamp) {
+    const sk = stamp.k;
+    ctx.save(); ctx.rotate(-0.16); ctx.scale(lerp(1.6, 1, ease(sk)), lerp(1.6, 1, ease(sk))); ctx.globalAlpha *= ease(sk);
+    ctx.strokeStyle = stamp.col; ctx.lineWidth = 3; rr(-62, -17, 124, 34, 4); ctx.stroke();
+    txt(stamp.text, 0, 8, stamp.col, 20, 900, 'center', MONO);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+function lightAt(x, y, state, now) {
+  const col = state === 'pass' ? PASS : state === 'fail' ? RED : state === 'run' ? GOLD : 'rgba(167,171,180,0.35)';
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill();
+  if (state === 'run') {
+    ctx.strokeStyle = '#26252e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 4.5, now / 120, now / 120 + 4); ctx.stroke();
+  } else if (state === 'pass' || state === 'fail') {
+    txt(state === 'pass' ? '✓' : '✕', x, y + 4.5, '#1e1d24', 12, 900, 'center');
+  }
+}
+
+function drawAgent(t, now) {
+  const k = attemptAt(t), a = ATT[k];
+  const strikes = ATT.filter((b, i) => b.task === a.task && b.verdict && i <= k && t >= (b.ph.strike || [1e9])[0]).length;
+  panel(AG, 'AGENT', `${TASKS[a.task].fn} · strikes ${strikes} of 2`, strikes ? RED : null);
+  /* the editor */
+  const ex = AG.x + 16, ey = AG.y + 50, ew = AG.w - 32;
+  ctx.fillStyle = '#1c1b22'; rr(ex, ey, ew, 240, 6); ctx.fill();
+  const wu = inPh(a, 'write', t);
+  const struck = a.verdict && t >= a.ph.strike[0];
+  const total = a.code.join('').length;
+  let used = 0;
+  a.code.forEach((l, i) => {
+    const y = ey + 28 + i * 25;
+    const u = (wu * total - used) / Math.max(1, l.length); used += l.length;
+    const isBad = struck && a.bad.includes(i);
+    const isNew = a.fresh && a.fresh.includes(i) && t < (a.ph.shape || [0])[0] + 0.5;
+    if (isBad) { ctx.fillStyle = 'rgba(217,83,60,0.18)'; ctx.fillRect(ex + 4, y - 16, ew - 8, 22); ctx.fillStyle = RED; ctx.fillRect(ex + 4, y - 16, 3, 22); }
+    if (isNew && u > 0) { ctx.fillStyle = 'rgba(232,176,74,0.14)'; ctx.fillRect(ex + 4, y - 16, ew - 8, 22); }
+    txt(String(i + 1), ex + 22, y, 'rgba(167,171,180,0.4)', 11, 500, 'right', MONO);
+    if (u > 0) txt(typed(l, u), ex + 34, y, l.startsWith('def') ? '#f0ebdf' : '#b9c1cf', 14, 600, 'left', MONO);
+  });
+  /* what came back from the gate */
+  const back = a.verdict && t >= a.ph.back[0];
+  if (back) {
+    const bk = ease(seg(t, a.ph.back[1] - 0.3, a.ph.back[1] + 0.3));
+    txt('STRUCK — ' + a.reason[0], ex, ey + 268, `rgba(217,83,60,${bk})`, 12, 700);
+    txt(a.reason[1], ex + 82, ey + 286, `rgba(217,83,60,${bk})`, 12, 700);
+    txt('↺ rewrite', ex + ew, ey + 286, `rgba(232,176,74,${bk})`, 12, 700, 'right');
+  } else if (wu > 0 && wu < 1 && k > 0 && ATT[k - 1].task === a.task) {
+    txt('rewriting — the ticket came back struck', ex, ey + 268, 'rgba(232,176,74,0.9)', 12, 700);
+  } else if (wu >= 1 && t < a.ph.travel[1]) {
+    txt('done → to the gate', ex, ey + 268, 'rgba(240,235,223,0.8)', 12, 700);
+  }
+}
+
+function drawGate(t, now) {
+  const k = attemptAt(t), a = ATT[k];
+  panel(GT, 'CLOSER · THE GATE', 'nothing is written until it passes');
+  /* the claim on this ticket */
+  const cx = GT.x + 16, cy = GT.y + 48, cw = GT.w - 32;
+  ctx.fillStyle = 'rgba(232,176,74,0.1)'; rr(cx, cy, cw, 44, 6); ctx.fill();
+  txt('CLAIM', cx + 12, cy + 18, GOLD, 10, 700, 'left', MONO);
+  txt(TASKS[a.task].claim, cx + 12, cy + 35, '#f0ebdf', 13, 600);
+  /* the three checks */
+  const states = CHECKS.map(c => {
+    if (!a.ph[c.k]) return t >= (a.ph.strike || [1e9])[0] ? 'skip' : 'wait';
+    if (t < a.ph[c.k][0]) return 'wait';
+    if (t < a.ph[c.k][1]) return 'run';
+    return a.verdict === c.k ? 'fail' : 'pass';
+  });
+  CHECKS.forEach((c, i) => {
+    const y = GT.y + 124 + i * 40;
+    lightAt(cx + 12, y - 4, states[i], now);
+    txt(c.name, cx + 30, y, states[i] === 'fail' ? RED : '#f0ebdf', 13, 700, 'left', MONO);
+    txt(states[i] === 'skip' ? '— not reached' : c.what, cx + 104, y, 'rgba(167,171,180,0.85)', 12, 500);
+  });
+  /* the claim, run for real */
+  const vx = GT.x + GT.w - 132, vy = GT.y + 102, vw = 116, vh = 128;
+  ctx.fillStyle = '#1c1b22'; rr(vx, vy, vw, vh, 6); ctx.fill();
+  const cu = a.ph.claims ? seg(t, a.ph.claims[0], a.ph.claims[1]) : 0;
+  const ran = a.ph.claims && t >= a.ph.claims[0];
+  const ok = a.verdict !== 'claims';
+  if (TASKS[a.task].view === 'phone') {
+    phone(vx + 30, vy + 10, 56, 96, (px, py, pw, ph) => {
+      if (!ran) { txt('—', px + pw / 2, py + ph / 2 + 4, '#8a8f98', 12, 700, 'center'); return; }
+      const got = ok && cu > 0.55;
+      if (!got) { txt('waiting', px + pw / 2, py + 38, '#8a8f98', 8.5, 700, 'center'); txt('for photo…', px + pw / 2, py + 50, '#8a8f98', 8.5, 700, 'center'); }
+      else {
+        ctx.fillStyle = '#bfe0ef'; ctx.fillRect(px + 3, py + 14, pw - 6, 34); ctx.fillStyle = '#9cc58a'; ctx.fillRect(px + 3, py + 38, pw - 6, 10);
+        dog(px + pw / 2 - 3, py + 47, 0.55, { wag: NOW.t });
+        txt('Rex · park', px + 4, py + 62, INK, 7.5, 700);
+      }
+    });
+    txt(!ran ? 'not run' : cu < 0.55 ? 'sending…' : ok ? 'photo received ✓' : 'nothing came ✕', vx + vw / 2, vy + vh - 8, !ran ? 'rgba(167,171,180,0.6)' : cu < 0.55 ? GOLD : ok ? PASS : RED, 10, 700, 'center');
+  } else {
+    const dx = vx + 34, dy = vy + 14, dw = 48, dh = 90;
+    ctx.fillStyle = '#4a3d33'; ctx.fillRect(dx - 5, dy - 5, dw + 10, dh + 5);
+    ctx.fillStyle = '#120e0c'; ctx.fillRect(dx, dy, dw, dh);
+    const shut = ran && ok ? ease(seg(cu, 0.2, 0.5)) : 0;
+    ctx.fillStyle = '#5a4535'; ctx.fillRect(dx, dy, dw * lerp(0.34, 1, shut), dh);
+    if (ran) {
+      const lockOk = ok && cu > 0.55, lockBad = !ok && cu > 0.55;
+      ctx.fillStyle = lockOk ? PASS : lockBad ? RED : GOLD;
+      rr(dx + dw * lerp(0.34, 1, shut) - 12, dy + 42, 10, 8, 1.5); ctx.fill();
+    }
+    txt(!ran ? 'not run' : cu < 0.55 ? 'locking…' : ok ? 'door locked ✓' : 'still open ✕', vx + vw / 2, vy + vh - 8, !ran ? 'rgba(167,171,180,0.6)' : cu < 0.55 ? GOLD : ok ? PASS : RED, 10, 700, 'center');
+  }
+  /* the door to the file, and the man on it (CLOSER20's bouncer) */
+  const floor = GT.y + GT.h - 18;
+  ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(GT.x + 16, floor, GT.w - 32, 2);
+  const D = DOOR_G;
+  const opening = a.verdict ? 0 : Math.max(ease(inPh(a, 'lift', t)) * (1 - ease(seg(t, a.ph.through[1] - 0.2, a.ph.through[1] + 0.3))), 0);
+  ctx.fillStyle = '#4a3d33'; ctx.fillRect(D.x - 7, D.y - 7, D.w + 14, D.h + 7);
+  ctx.fillStyle = '#0f1013'; ctx.fillRect(D.x, D.y, D.w, D.h);
+  const g = ctx.createLinearGradient(D.x, 0, D.x + D.w, 0);
+  g.addColorStop(0, 'rgba(79,191,139,0.35)'); g.addColorStop(1, 'rgba(79,191,139,0.08)');
+  ctx.fillStyle = g; ctx.fillRect(D.x, D.y, D.w, D.h);
+  ctx.fillStyle = '#5a4535'; ctx.fillRect(D.x, D.y, D.w * (1 - 0.8 * opening), D.h);
+  ctx.fillStyle = opening > 0.5 ? PASS : RED; ctx.beginPath(); ctx.arc(D.x + D.w / 2, D.y - 18, 5, 0, Math.PI * 2); ctx.fill();
+  txt('THE FILE →', D.x + D.w / 2, D.y - 30, 'rgba(167,171,180,0.8)', 9, 700, 'center', MONO);
+  /* the bouncer: built like a person, arms down; he nods a pass through */
+  const nod = a.verdict ? 0 : Math.sin(clamp(inPh(a, 'lift', t) * 1.4) * Math.PI) * 5;
+  const lit = ctx.createRadialGradient(744, floor - 120, 10, 744, floor - 100, 150);
+  lit.addColorStop(0, 'rgba(255,226,180,0.16)'); lit.addColorStop(1, 'rgba(255,226,180,0)');
+  ctx.fillStyle = lit; ctx.fillRect(590, floor - 270, 310, 270);
+  bouncer(740, floor, 212, nod, opening);
+}
+
+function drawFile(t, now) {
+  const landA = ATT[1].ph.land, landB = ATT[3].ph.land;
+  const wA = seg(t, landA[0], landA[1]), wB = seg(t, landB[0], landB[1]);
+  panel(FL, 'walker_app/actions.py', wB >= 1 ? 'written ✓' : wA >= 1 ? '1 of 2 written' : 'unchanged', wA >= 1 ? PASS : null);
+  const x = FL.x + 16, y0 = FL.y + 60;
+  const base = ['from walker import book, pick_up, walk', '', 'def book_walker(dog, times): …', 'def pick_up(dog, door): …', ''];
+  let y = y0;
+  base.forEach(l => { if (l) txt(l, x + 4, y, 'rgba(185,193,207,0.6)', 12.5, 500, 'left', MONO); y += 22; });
+  const slot = (code, w, label) => {
+    const h = code.length * 20 + 18;
+    if (w <= 0) {
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(167,171,180,0.35)'; ctx.lineWidth = 1; rr(x, y - 14, FL.w - 32, 34, 6); ctx.stroke(); ctx.setLineDash([]);
+      txt(label + ' — nothing written yet', x + 12, y + 7, 'rgba(167,171,180,0.6)', 11.5, 600, 'left', MONO);
+      y += 48;
+      return;
+    }
+    const glow = 1 - ease(seg(w, 0.6, 1)) * 0.6;
+    ctx.fillStyle = `rgba(79,191,139,${0.16 * glow})`; rr(x, y - 16, FL.w - 32, h, 6); ctx.fill();
+    ctx.fillStyle = PASS; ctx.fillRect(x, y - 16, 3, h);
+    code.forEach((l, i) => {
+      const k = ease(clamp(w * code.length * 1.4 - i));
+      txt(l, x + 12 + (1 - k) * -14, y + i * 20, `rgba(240,235,223,${k})`, 12.5, 600, 'left', MONO);
+    });
+    y += h + 14;
+  };
+  slot(CODE.A2, wA, 'send_photo()');
+  slot(CODE.B2, wB, 'lock_door()');
+}
+
+function drawTicket(t, now) {
+  const k = attemptAt(t), a = ATT[k];
+  const ph = a.ph;
+  /* the previous struck ticket lingers at the agent until the rewrite starts */
+  if (k > 0 && ATT[k - 1].verdict) {
+    const p = ATT[k - 1];
+    const fade = 1 - ease(seg(t, ph.write[0], ph.write[0] + 0.8));
+    ticketCard(SPOT_A[0], SPOT_A[1], p, { k: 1, text: 'STRUCK', col: RED }, fade);
+  }
+  const form = ease(seg(t, ph.write[1] - 0.6, ph.write[1]));
+  if (form <= 0) return;
+  let x = SPOT_A[0], y = SPOT_A[1], al = form, stamp = null;
+  if (t >= ph.travel[0]) {
+    const u = ease(inPh(a, 'travel', t));
+    x = lerp(SPOT_A[0], SPOT_G[0], u); y = SPOT_A[1] - Math.sin(u * Math.PI) * 30 + (SPOT_G[1] - SPOT_A[1]) * u;
+  }
+  if (a.verdict) {
+    if (t >= ph.strike[0]) stamp = { k: inPh(a, 'strike', t) * 1.6, text: 'STRUCK', col: RED };
+    if (t >= ph.back[0]) {
+      const u = ease(inPh(a, 'back', t));
+      x = lerp(SPOT_G[0], SPOT_A[0], u); y = lerp(SPOT_G[1], SPOT_A[1], u) - Math.sin(u * Math.PI) * 40;
+      if (u > 0) {
+        ctx.setLineDash([5, 5]); ctx.strokeStyle = `rgba(217,83,60,${0.6 * (1 - u * 0.5)})`; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(SPOT_G[0] - 90, SPOT_G[1] - 50); ctx.quadraticCurveTo((SPOT_G[0] + SPOT_A[0]) / 2, SPOT_A[1] - 110, SPOT_A[0] + 90, SPOT_A[1] - 50); ctx.stroke(); ctx.setLineDash([]);
+        txt('straight back to the agent', (SPOT_G[0] + SPOT_A[0]) / 2, SPOT_A[1] - 96, `rgba(217,83,60,${0.9})`, 12, 700, 'center');
+      }
+    }
+  } else {
+    if (t >= ph.lift[0]) stamp = { k: inPh(a, 'lift', t) * 1.4, text: 'PASSED', col: PASS };
+    if (t >= ph.through[0]) {
+      const u = ease(inPh(a, 'through', t));
+      x = lerp(SPOT_G[0], SPOT_F[0], u); y = SPOT_G[1] - Math.sin(u * Math.PI) * 26;
+      al = 1 - ease(seg(u, 0.75, 1));
+    }
+    if (t >= ph.through[1]) return;
+  }
+  ticketCard(x, y, a, stamp, al);
+}
+
+function drawScreen(t, now) {
+  ctx.fillStyle = '#1e1d24'; ctx.fillRect(-200, -200, DW + 400, DH + 400);
+  txt('CLOSER', 28, 26, PASS, 12, 800, 'left', MONO);
+  txt('agent → gate → file · every change is a ticket, every ticket is judged before it lands', 104, 26, 'rgba(240,235,223,0.7)', 12, 500);
+  drawAgent(t, now);
+  drawGate(t, now);
+  drawFile(t, now);
+  drawTicket(t, now);
+}
+
+/* the man on the door (CLOSER20's bouncer): front on, arms crossed — no raised arm */
+function bouncer(cx, floor, h, nod, open) {
+  const skin = '#b78466', shirt = '#202128', shirtLit = '#2c2e37', pants = '#2a2c33';
+  const hipY = floor - h * 0.47, shY = floor - h * 0.8;
+  /* legs and shoes */
+  for (const s of [-1, 1]) {
+    ctx.fillStyle = pants;
+    ctx.beginPath();
+    ctx.moveTo(cx + s * h * 0.015, hipY); ctx.lineTo(cx + s * h * 0.11, hipY);
+    ctx.lineTo(cx + s * h * 0.095, floor - h * 0.03); ctx.lineTo(cx + s * h * 0.03, floor - h * 0.03); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#121216'; ctx.beginPath(); ctx.ellipse(cx + s * h * 0.065, floor - h * 0.018, h * 0.05, h * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = '#17171b'; ctx.fillRect(cx - h * 0.12, hipY - h * 0.02, h * 0.24, h * 0.03);
+  /* torso: broad shoulders to the belt, rim-lit from the doorway on his left */
+  const g = ctx.createLinearGradient(cx - h * 0.2, 0, cx + h * 0.2, 0);
+  g.addColorStop(0, shirt); g.addColorStop(0.7, shirt); g.addColorStop(1, open > 0.3 ? '#2f4a3f' : shirtLit);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(cx - h * 0.12, hipY); ctx.lineTo(cx - h * 0.19, shY + h * 0.05);
+  ctx.quadraticCurveTo(cx - h * 0.18, shY - h * 0.01, cx - h * 0.06, shY - h * 0.02);
+  ctx.lineTo(cx + h * 0.06, shY - h * 0.02);
+  ctx.quadraticCurveTo(cx + h * 0.18, shY - h * 0.01, cx + h * 0.19, shY + h * 0.05);
+  ctx.lineTo(cx + h * 0.12, hipY); ctx.closePath(); ctx.fill();
+  txt('CLOSER', cx, shY + h * 0.085, PASS, h * 0.045, 800, 'center', MONO);
+  /* arms: upper arms down the sides, forearms folded across the chest */
+  const elY = shY + h * 0.2;
+  limb(cx - h * 0.17, shY + h * 0.05, cx - h * 0.175, elY, h * 0.085, h * 0.07, shirt);
+  limb(cx + h * 0.17, shY + h * 0.05, cx + h * 0.175, elY, h * 0.085, h * 0.07, shirt);
+  limb(cx - h * 0.175, elY, cx + h * 0.1, elY - h * 0.045, h * 0.07, h * 0.06, skin);
+  limb(cx + h * 0.175, elY - h * 0.005, cx - h * 0.1, elY - h * 0.06, h * 0.07, h * 0.06, '#c08d6e');
+  ctx.fillStyle = shirt; ctx.beginPath(); ctx.ellipse(cx - h * 0.16, elY - h * 0.02, h * 0.045, h * 0.04, 0, 0, Math.PI * 2); ctx.ellipse(cx + h * 0.16, elY - h * 0.025, h * 0.045, h * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+  /* neck and head; he nods a pass through */
+  const hy = shY - h * 0.1 + nod;
+  limb(cx, shY, cx, hy + h * 0.04, h * 0.06, h * 0.055, skin);
+  ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(cx, hy, h * 0.058, h * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx - h * 0.058, hy + h * 0.005, h * 0.012, h * 0.02, 0, 0, Math.PI * 2); ctx.ellipse(cx + h * 0.058, hy + h * 0.005, h * 0.012, h * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#141210'; ctx.beginPath(); ctx.ellipse(cx, hy - h * 0.035, h * 0.06, h * 0.042, 0, Math.PI, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1e1714';
+  ctx.fillRect(cx - h * 0.032, hy - h * 0.008, h * 0.022, h * 0.006); ctx.fillRect(cx + h * 0.01, hy - h * 0.008, h * 0.022, h * 0.006);
+  ctx.beginPath(); ctx.arc(cx - h * 0.021, hy + h * 0.006, h * 0.006, 0, Math.PI * 2); ctx.arc(cx + h * 0.021, hy + h * 0.006, h * 0.006, 0, Math.PI * 2); ctx.fill();
+  ctx.fillRect(cx - h * 0.016, hy + h * 0.038, h * 0.032, h * 0.005);
+}
+
+/* ── the next walk: what it reports is what happens ──────────────────── */
+function flipX(x, fn) { ctx.save(); ctx.translate(x, 0); ctx.scale(-1, 1); ctx.translate(-x, 0); fn(); ctx.restore(); }
+function notify(u, win2, title, sub, thumb) {
+  const k = ease(seg(u, win2[0], win2[0] + 0.4)) * (1 - ease(seg(u, win2[1] - 0.4, win2[1])));
+  if (k <= 0) return;
+  ctx.save(); ctx.globalAlpha = k;
+  const w = 420, x = 760 - w / 2, y = 22 - (1 - k) * 16;
+  ctx.fillStyle = 'rgba(244,240,230,0.97)'; rr(x, y, w, 62, 14); ctx.fill();
+  ctx.fillStyle = GREEN; rr(x + 12, y + 13, 36, 36, 9); ctx.fill();
+  ctx.save(); ctx.translate(x + 30, y + 31); ctx.scale(0.6, 0.6); dog(0, 14, 0.9, { coat: '#ffffff' }); ctx.restore();
+  txt('DOG WALKER', x + 60, y + 22, '#6b6f78', 10, 700, 'left', MONO);
+  txt(title, x + 60, y + 42, INK, 16, 700);
+  if (sub) txt(sub, x + 60, y + 56, '#6b6f78', 11, 600);
+  if (thumb) {
+    const tx = x + w - 92, ty = y + 8;
+    ctx.fillStyle = '#bfe0ef'; ctx.fillRect(tx, ty, 80, 30); ctx.fillStyle = '#9cc58a'; ctx.fillRect(tx, ty + 30, 80, 16);
+    ctx.fillStyle = '#5f9a52'; ctx.beginPath(); ctx.arc(tx + 64, ty + 22, 12, 0, Math.PI * 2); ctx.fill();
+    dog(tx + 34, ty + 42, 0.9, { wag: NOW.t });
+  }
+  ctx.restore();
+}
+function drawUseOverlay(t, now) {
+  const u = us(t);
+  notify(u, U.photo, 'Rex · the park', '6:21 pm · photo from Jo', true);
+  notify(u, U.locked, 'Rex is home', 'front door locked ✓');
+  const m = seg(u, U.match[0], U.match[1]);
+  if (m > 0) drawBalloons(t, 0, lerp(RB.meant[0], 0.8, m));
+}
+function phoneAt(t) {
+  if (t < T.use[0]) return 0;
+  const u = us(t);
+  return ease(seg(u, U.phoneUp[0], U.phoneUp[1])) * (1 - ease(seg(u, U.phoneDown[0], U.phoneDown[1])));
+}
+
+/* ── camera / scenes ─────────────────────────────────────────────────── */
+const SCREEN_AT = [1137, 328];
+function roomCam(t) {
+  const push = ease(seg(t, T.bridge[0] + 0.4, T.bridge[0] + 2.4));
+  if (t >= T.use[0]) {
+    const d = ease(seg(us(t), 0, T.use[1] - T.use[0]));
+    return { cx: lerp(760, 740, d), cy: lerp(300, 296, d), z: lerp(1.06, 1.1, d) };
+  }
+  const z = Math.pow(7, push);
+  return { cx: lerp(720, SCREEN_AT[0], push), cy: lerp(301, SCREEN_AT[1], push), z };
+}
+function screenMix(t) {
+  if (t < T.bridge[0] + 1.3) return 0;
+  if (t < T.bridge[0] + 2.2) return ease(seg(t, T.bridge[0] + 1.3, T.bridge[0] + 2.2));
+  if (t < T.use[0]) return 1;
+  return 1 - ease(seg(t, T.use[0], T.use[0] + 0.9));
+}
+function reactAt(t) {
+  let r = 0;
+  [T.r1, T.r2].forEach(w => { const u = seg(t, w[0], w[1]); r = Math.max(r, win(u, RB.built[1] + 0.06, 1.0, 0.08)); });
+  return r;
+}
+
+/* ═══ loop ═══════════════════════════════════════════════════════════ */
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (lastNow === null) lastNow = now;
+  const dt = Math.min(now - lastNow, 1000); lastNow = now;
+  if (tweenStart >= 0) { const te = clamp((now - tweenStart) / tweenDur); e = lerp(tweenFrom, engaged ? 1 : 0, ease(te)); if (te >= 1) tweenStart = -1; }
+  lean += (leanT - lean) * 0.05;
+  if (engaged && e > 0.9) { const b = storyT; storyT = (storyT + dt / 1000) % EP_LEN; if (storyT < b) looped = true; }
+  else if (!engaged && e < 0.02) { storyT = 0; looped = false; }
+  const t = REDUCED ? (engaged ? T.use[0] + U.match[1] - 0.5 : 0) : storyT;
+  NOW.t = t; NOW.ms = now;
+
+  const w = cv.clientWidth, h = cv.clientHeight;
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  if (cv.width !== Math.round(w * DPR) || cv.height !== Math.round(h * DPR)) { cv.width = Math.round(w * DPR); cv.height = Math.round(h * DPR); }
+  W = w; H = h;
+  const fit = Math.min(W / DW, H / DH);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = '#2f2823'; ctx.fillRect(0, 0, W, H);
+
+  const mix = screenMix(t);
+  if (mix < 1) {
+    const cam = roomCam(t);
+    ctx.save();
+    ctx.translate(W / 2, H / 2); ctx.scale(fit * cam.z, fit * cam.z); ctx.translate(-cam.cx + lean * 6, -cam.cy);
+    drawRoom(t, now);
+    drawRoomDog(t, now);
+    drawDesk(t, now, t > T.bridge[0] ? 1 : 0);
+    drawUser(t, now, reactAt(t), phoneAt(t));
+    if (t >= T.use[0]) drawUseOverlay(t, now);
+    if (t < T.bridge[0]) {
+      const i = t < T.r2[0] ? 0 : 1;
+      if (t >= T.r1[0]) { drawBalloons(t, i); drawRequest(t, i); }
+    }
+    ctx.restore();
+  }
+  if (mix > 0) {
+    ctx.save();
+    ctx.globalAlpha = mix;
+    const s = fit * lerp(1.05, 1, mix);
+    ctx.translate(W / 2, H / 2); ctx.scale(s, s); ctx.translate(-DW / 2, -DH / 2);
+    drawScreen(t, now);
+    ctx.restore();
+  }
+
+  /* captions */
+  const reqCap = (i) => {
+    const u = seg(t, T['r' + (i + 1)][0], T['r' + (i + 1)][1]);
+    if (u < RB.meant[0]) return `He asks the AI agent writing his app: “${REQ[i].text}”`;
+    if (u < RB.built[0]) return `The agent: “${REQ[i].said}”`;
+    return `What happened: ${REQ[i].got}`;
+  };
+  const gateCap = () => {
+    const k = attemptAt(t), a = ATT[k], p = a.ph;
+    if (k === 0 && t < p.travel[1]) return 'With Closer, every change comes to the gate as a ticket, with what it claims to do';
+    if (k === 0 && t < p.strike[0]) return 'The gate reads what the change introduces: it returns True and sends nothing';
+    if (k === 0) return 'Struck — and straight back to the agent to rewrite. Nothing is written';
+    if (k === 1 && t < p.claims[0]) return 'Rewritten, and tested again';
+    if (k === 1 && t < p.lift[0]) return 'Its claim is run for real: a photo has to reach the phone';
+    if (k === 1) return 'It does. Through the door — written to the file';
+    if (k === 2 && t < p.claims[0]) return 'Next ticket. The shape looks fine, the tests pass…';
+    if (k === 2) return '…but the claim checks the door: still open. Struck, back to the agent';
+    if (t < p.lift[0]) return 'Rewritten, tested again — the door locks';
+    return 'Passed, and written. Only what does what it claims gets in';
+  };
+  statusEl.textContent =
+    e < 0.02 ? 'Two features, done — click to play'
+    : !engaged ? 'Standing down…'
+    : t < T.r1[0] ? 'An AI agent is writing his dog-walker app'
+    : t < T.r2[0] ? reqCap(0)
+    : t < T.bridge[0] ? reqCap(1)
+    : t < T.gate[0] ? 'Code that reports done and does nothing is counterfeit. Closer stands between the agent and the file'
+    : t < T.use[0] ? gateCap()
+    : us(t) < U.locked[0] ? 'The next walk: Rex at the park — the photo arrives'
+    : us(t) < U.match[0] ? 'Home — and the door really is locked'
+    : 'What the agent reports is what the code does';
+
+  /* vignette + dips */
+  const vg = ctx.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.4, W / 2, H / 2, Math.max(W, H) * 0.75);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.38)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  let dip = 0;
+  if (t >= T.reseed[0]) dip = ease(seg(t, T.reseed[0], T.reseed[1] - 0.6));
+  if (looped && t < 0.7) dip = Math.max(dip, 1 - t / 0.7);
+  if (dip > 0.001) { ctx.fillStyle = `rgba(0,0,0,${dip})`; ctx.fillRect(0, 0, W, H); }
+}
+requestAnimationFrame(frame);
+})();
+</script>

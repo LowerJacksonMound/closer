@@ -1,0 +1,26 @@
+# Packaging metadata for Closer. The tree is run in place (QUICKSTART: copy the folder, symlink `closer`); there is
+# no pip install step and no requirements file. `bin/gc` has a `main()` but is a bare script that locates
+# pack/live and scanner/ relative to its own checkout, so no console entry point is declared here: an installed
+# wheel would not find the law. This file states name, version, license and the Python floor; it changes no code.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "closer"
+version = "0.1.0"
+description = "A gate between an AI code writer and a repository: signer-written claims, a read-only check pack under the macOS sandbox, and a tamper-evident ledger. Counterfeit code does not land."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = []
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.14",
+  "Operating System :: MacOS",
+]
+
+[tool.setuptools.packages.find]
+include = ["scanner*"]
