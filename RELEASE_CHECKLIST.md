@@ -162,6 +162,6 @@ Before a pack version or a kernel change is releasable. Regenerated 2026-10-11. 
 
 - [x] Private repo https://github.com/LowerJacksonMound/closer, branch `main`, tag `v0.1.0`, prerelease published with install, verify and known-limits notes.
 
-## Pass 2026-10-23, rung 3
+## Pass 2026-10-23, rung 3 (prepared)
 
-- [x] Full-history scan clean; author email rewritten to the GitHub no-reply address before the flip. Repository made PUBLIC. Rung 2 skipped by decision; the prerelease label and issue tracker take its place.
+- [x] Full-history scan clean; author email rewritten to the GitHub no-reply address before the flip. Repository READY for public: the flip itself is the owner's action (`gh repo edit --visibility public --accept-visibility-change-consequences`), recorded below when done. Rung 2 skipped by decision; the prerelease label and issue tracker take its place.
