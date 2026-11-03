@@ -5,6 +5,12 @@ All notable changes to Closer are recorded here. The format follows Keep a Chang
 ## [Unreleased]
 
 ### Added
+- Pack v39: system or outcome (proposals/PACK_v39.md, the signer's ruling of 2026-11-03). C1's runner records
+  whether any frame of a failure ran inside the tree under test. None did: the claim's own setup or call text, or
+  the environment, failed; that is the system's, `cannot_judge ... (system)`, and a function left unreached only by
+  such claims is said as unjudged, no strike. Any did: an outcome, judged as before. Plant `c1_system_vs_outcome`
+  replaces `c1_unjudged_unreached_strikes`. Seen: a claims draft with no imports cost the booking task a strike it
+  should not have; a wrong claim scenario that made correct code raise cost the quiz task one, and still would.
 - The signer's MCP server, `closer-mcp.sh` (`adapters/claude_code/closer_mcp.py`): seven tools, `cl_doctor`, `cl_task`,
   `cl_claims`, `cl_go`, `cl_status`, `cl_inspect`, `cl_stop`, each one `closer <command>` run in the repo the call names.
   Your own Claude session drives the front door; the writer's `gc` MCP is untouched and separate. The terminal's

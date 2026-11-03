@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Live in pack v32 (2026-10-19, T16 let through what the gate cannot judge: `cannot_judge` is no longer a `C1 fail:` line
+"""Live in pack v39 (2026-11-03, system or outcome: a failure none of whose frames ran inside the tree under test came
+from the claim's own setup or call, or the environment; it is `cannot_judge ... (system)`, and a function left unreached
+only by such claims is `C1 unjudged: ... (unreached: its claims could not run; system)`, no strike. A failure raised
+inside the tree is an outcome, expected or not, and judged as before: the signer's ruling, proposals/PACK_v39.md);
+v32 (2026-10-19, T16 let through what the gate cannot judge: `cannot_judge` is no longer a `C1 fail:` line
 and no longer exits 1; it is `C1 unjudged: <file>:<line> cannot_judge <qualname> (<reason>)` on stdout, filed in the evidence like
 a fail, counted in the `coverage` and `reach` evidence as not judged, and C1 exits 0 when every other claim held; the reach rule
 counts only judged claims; the pass line carries ", N not judged" when any claim was. v30 qualnames below 3.11: qualname_of;
@@ -150,6 +154,17 @@ except SyntaxError as e:
 
 budget = int(spec.get("lines") or 2000000)
 rootp = os.path.realpath(root) + os.sep
+def where(e):
+    """"code" when any frame of the exception ran inside the tree under test; "claim" when none did: the failure
+    came from the claim's own setup or call text, or the environment (v39: a system problem, not an outcome)."""
+    tb = e.__traceback__
+    while tb:
+        f = tb.tb_frame.f_code.co_filename
+        # "<setup>", "<call>", "<string>" are the claim's own text; relative to cwd (the root) they would look inside
+        if not f.startswith("<") and os.path.realpath(f).startswith(rootp) and "site-packages" not in f:
+            return "code"
+        tb = tb.tb_next
+    return "claim"
 def qualnames_in(path):
     """(name, first line) -> qualname for every def and class in the file at path, as co_qualname spells them; the
     first line as co_firstlineno gives it (the first decorator's line when decorated). Keys two qualnames share are
@@ -237,6 +252,7 @@ except Budget:
 except BaseException as e:
     sys.settrace(None)
     out["status"], out["exc"] = "setup_error", {"name": type(e).__name__, "msg": str(e)[:300]}
+    out["where"] = where(e)
     out["reached"] = sorted(reached); finish()
 try:
     result = eval(compile(spec["call"], "<call>", "eval"), ns)
@@ -248,6 +264,7 @@ except BaseException as e:
     sys.settrace(None)
     out["status"] = "raised"
     out["exc"] = {"name": type(e).__name__, "bases": [c.__name__ for c in type(e).__mro__[1:]], "msg": str(e)[:300]}
+    out["where"] = where(e)
 out["reached"] = sorted(reached)
 exp = spec["expect"]
 if out["status"] == "ok" and "true" in exp:
@@ -352,6 +369,12 @@ def judge(c: dict, r: dict) -> tuple[str | None, str]:
     rule, observed = None, ""
     if st in ("import_error", "setup_error", "runner_error"):
         rule, observed = "cannot_judge", f"{st}: {(r.get('exc') or {}).get('name')}: {(r.get('exc') or {}).get('msg')}"
+        if r.get("where") == "claim":
+            observed += " (system)"
+    elif st == "raised" and r.get("where") == "claim":
+        # v39: the call's own text failed before the code under test ran (a name the claim never bound, a bad
+        # literal): the system's, not a verdict on the writer.
+        rule, observed = "cannot_judge", f"call_error: {r['exc']['name']}: {r['exc'].get('msg', '')} (system)"
     elif st in ("timeout", "budget"):
         rule, observed = "cannot_judge", "out of time" if st == "timeout" else "out of line budget"
     elif st == "missing_name":
@@ -548,6 +571,11 @@ def main() -> int:
     write_set = json.loads(os.environ.get("WRITE_SET") or "[]")
     introduced = introduced_functions(root, before_root, write_set)
     unreached = [(f, q, ln) for (f, q, ln) in introduced if (f, q) not in reached]
+    # v39: a function left unreached only because every claim on it was the system's problem is not judged, not struck.
+    system_idx = {i for i, c, r, rule, obs in verdicts if rule == "cannot_judge" and r.get("where") == "claim"}
+    def system_only(f, q):
+        mine = [i for i, c, r in runs if c["name"] == dotted(f, q) or any(tuple(x) == (f, q) for x in (r.get("reached") or []))]
+        return bool(mine) and all(i in system_idx for i in mine)
 
     fails, unjudged, seen = [], [], set()
     for i, c, r, rule, obs in verdicts:
@@ -577,7 +605,10 @@ def main() -> int:
         for entry in before_findings(root, before_root, write_set, verdicts, lines, secs):
             print("C1 evidence: " + json.dumps(entry, sort_keys=True))
     for f, q, ln in unreached:
-        fails.append(f"C1 fail: introduced {f}:{ln} unreached {dotted(f, q)}")
+        if system_only(f, q):
+            unjudged.append(f"C1 unjudged: {f}:{ln} cannot_judge {dotted(f, q)} (unreached: its claims could not run; system)")
+        else:
+            fails.append(f"C1 fail: introduced {f}:{ln} unreached {dotted(f, q)}")
     for u in unjudged:
         print(u)
     if fails:
