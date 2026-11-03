@@ -28,3 +28,4 @@ runs/
 
 # Film draft video (3.7 MB binary; the two HTML drafts beside it stay)
 *.mp4
+/media/

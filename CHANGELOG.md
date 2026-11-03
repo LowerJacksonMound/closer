@@ -2,6 +2,26 @@
 
 All notable changes to Closer are recorded here. The format follows Keep a Changelog; versions follow 0.x semantics, where a minor bump may break. The gate's own pack history (v26 to v38) is in PACK.md and `proposals/`; this file starts at the first release of the tree.
 
+## [Unreleased]
+
+### Added
+- The signer's MCP server, `closer-mcp.sh` (`adapters/claude_code/closer_mcp.py`): seven tools, `cl_doctor`, `cl_task`,
+  `cl_claims`, `cl_go`, `cl_status`, `cl_inspect`, `cl_stop`, each one `closer <command>` run in the repo the call names.
+  Your own Claude session drives the front door; the writer's `gc` MCP is untouched and separate. The terminal's
+  "[y/N]" pause is rebuilt as two refusals: `cl_go` is refused until `cl_claims` has printed the task's claims in the
+  same process, and refused unless `approved` is true, which the instructions reserve for the person's word (T5).
+  `install_closer_mcp.sh` registers it with Claude Code at user scope with a 50-minute tool timeout. Plant
+  `mcp_outer_gate` holds the tool list and both refusals. `gc_mcp.py` lends its stdio loop (`serve`) and lets a
+  subclass bring its own tool list; no behaviour change for the writer. MCP.md documents it.
+
+### Changed
+- `closer go` / `closer claims` will not mint a ticket a writer cannot pass in full. After the siloed claim agent drafts,
+  every function the task names (`name(` in backticks) must have a claim that calls it (by name, or `f(` in setup, call
+  or expect). Missing ones are asked of the same siloed agent, up to two more rounds; if any is still unclaimed,
+  minting stops and names it. Unreached functions are still a strike at the gate (T16 unchanged): this stops the strike
+  before the writer works, instead of after. Seen live: a 15-function task whose first draft missed 7 functions now
+  mints with all 15 claimed; the demo mints and is accepted unchanged. No pack, check or World change.
+
 ## [0.1.0] - 2026-10-23
 
 ### Added

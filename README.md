@@ -123,6 +123,7 @@ error. v34 (2026-10-21) adds `judge_detection` to S1 (KERNEL T20): code that ask
 - DESIGN.md: how a World is produced.
 - GLOSSARY.md: canonical names and retired ones (`gc glossary check`).
 - RELEASE_CHECKLIST.md: before a pack or kernel change is releasable.
+- MCP.md: the signer's MCP server (`closer-mcp.sh`), its seven tools, and how the yes stays with the person.
 
 ## License
 

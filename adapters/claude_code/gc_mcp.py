@@ -69,6 +69,8 @@ def _arg(args: dict, k: str) -> str:
 
 
 class Server:
+    TOOLS, SERVER = TOOLS, SERVER  # closer_mcp.py subclasses with its own list
+
     def __init__(self, state: Path):
         self.state = state
         self.wrapper = state / "gc-writer"
@@ -115,11 +117,11 @@ class Server:
         if method == "initialize":
             want = params.get("protocolVersion")
             return _ok(mid, {"protocolVersion": want if want in KNOWN_PROTOCOLS else DEFAULT_PROTOCOL,
-                             "capabilities": {"tools": {}}, "serverInfo": SERVER})
+                             "capabilities": {"tools": {}}, "serverInfo": self.SERVER})
         if method == "ping":
             return _ok(mid, {})
         if method == "tools/list":
-            return _ok(mid, {"tools": TOOLS})
+            return _ok(mid, {"tools": self.TOOLS})
         if method == "tools/call":
             try:
                 text, is_err = self.call(params.get("name"), params.get("arguments") or {})
@@ -147,7 +149,11 @@ def main() -> int:
     if len(sys.argv) != 2:
         print("usage: gc_mcp.py <state_dir>", file=sys.stderr)
         return 2
-    server = Server(Path(sys.argv[1]).resolve())
+    return serve(Server(Path(sys.argv[1]).resolve()))
+
+
+def serve(server) -> int:
+    """The stdio loop: one JSON-RPC message per line in, one reply per line out. Shared with closer_mcp.py."""
     while True:
         line = sys.stdin.readline(MAX_LINE + 1)
         if not line:

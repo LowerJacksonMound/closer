@@ -18,6 +18,14 @@ Copy this folder anywhere and put `closer` on your path, for example:
 
     ln -s "$PWD/closer" /usr/local/bin/closer
 
+Or, to drive it from your own Claude Code session instead of a terminal, register the MCP server once:
+
+    bash install_closer_mcp.sh
+
+and ask the agent for a task: it calls `cl_doctor`, `cl_task`, `cl_claims` and shows you the claims; after your yes it
+calls `cl_go`, then `cl_inspect` for the verdict (MCP.md). The rest of this page is the terminal route; the two are the
+same gate.
+
 Then check the machine:
 
     closer doctor
@@ -65,7 +73,8 @@ the order when order matters. Name the test file. A wrong example becomes a wron
 
 ## Other commands
 
-    closer claims TASK.md    draft and show the claims, mint nothing
+    closer claims TASK.md    draft and show the claims, mint nothing (every function the task names gets a claim,
+                             or nothing is minted)
     closer go TASK.md --chat an interactive writer session: you type the request yourself
     closer status            the page as text, with the next step and the advisory load (how often notes appear)
     closer inspect [TICKET]  one ticket's verdict in words: every check and claim, what was not judged, the evidence file

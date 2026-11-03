@@ -209,11 +209,67 @@ def draft_claims(repo, st, task_file):
     contradictions = (data.get("contradictions") or []) if isinstance(data, dict) else []
     if not isinstance(claims, list) or not claims:
         die("the claim agent returned no claims")
+    # Every function the task names must have a claim that calls it: a function no claim reaches is never tested,
+    # and the gate refuses it after the writer has worked. Ask the same siloed agent for the missing ones, then refuse
+    # to mint rather than launch a writer on a ticket that cannot be judged in full.
+    for round_ in (1, 2):
+        missing = unclaimed(task, claims)
+        if not missing:
+            break
+        say(f"no claim yet for {len(missing)} function(s) the task names ({', '.join(missing)}); asking the claim agent for them ...")
+        more = ask_claims(repo, CLAIM_BRIEF + task + COVER_BRIEF.format(names=", ".join(missing)))
+        claims += [c for c in more if isinstance(c, dict) and c.get("call")]
+    missing = unclaimed(task, claims)
+    if missing:
+        die(f"not minting: no claim reaches {', '.join(missing)}. Every function must be tested, so give TASK.md a "
+            f"criterion or an example for each, then rerun.")
     out.write_text(json.dumps(claims, indent=1) + "\n")
     (sdir / "contradictions.txt").write_text("\n".join(contradictions) + ("\n" if contradictions else ""))
     chk = subprocess.run([PY, str(HERE / "bin" / "claims_draft.py"), "--repo", str(repo), "--task-file", str(task_file),
                           "--check", str(out)], text=True, capture_output=True)
     return claims, contradictions, (chk.stdout + chk.stderr).strip()
+
+
+COVER_BRIEF = """
+
+ADDITIONAL REQUEST: the claims so far reach every function except these: {names}. Write claims ONLY for these
+functions, in the same format, at least one each that calls the function directly, covering what TASK says it does.
+Reply with one ```json block holding {{"claims": [...]}}."""
+
+_NOT_FUNCTIONS = {"print", "len", "str", "int", "float", "list", "dict", "set", "tuple", "isinstance", "range", "repr"}
+
+
+def task_functions(task: str) -> list[str]:
+    """The functions the task names: `name(` inside backticks, without builtins or Capitalized names (exceptions)."""
+
+    found = []
+    for code in re.findall(r"`([^`]+)`", task):
+        for name in re.findall(r"(?<![\w.])((?:[A-Za-z_]\w*\.)*[a-z_]\w*)\(", code):
+            last = name.split(".")[-1]
+            if last not in _NOT_FUNCTIONS and last not in found and not last.startswith("test"):
+                found.append(last)
+    return found
+
+
+def unclaimed(task: str, claims: list) -> list[str]:
+    """Task functions no claim calls: by its name (agent.f), or by a direct call `f(` in setup, call or expect."""
+
+    text = " ".join(" ".join([c.get("name", ""), c.get("call", ""), " ".join(c.get("setup") or []), json.dumps(c.get("expect", ""))])
+                    for c in claims if isinstance(c, dict))
+    names = {c.get("name", "").split(".")[-1] for c in claims if isinstance(c, dict)}
+    return [f for f in task_functions(task) if f not in names and not re.search(r"(?<![\w])" + re.escape(f) + r"\(", text)]
+
+
+def ask_claims(repo, prompt: str) -> list:
+    r = subprocess.run(["claude", "--tools", "Read,Grep,Glob", "--strict-mcp-config", "--permission-mode", "dontAsk", "-p", prompt],
+                       cwd=repo, text=True, capture_output=True)
+    blocks = re.findall(r"```json\s*(.*?)```", r.stdout, re.S)
+    try:
+        data = json.loads(blocks[-1]) if blocks else {}
+    except json.JSONDecodeError:
+        return []
+    got = data.get("claims") if isinstance(data, dict) else data
+    return got if isinstance(got, list) else []
 
 
 def expect_words(e):

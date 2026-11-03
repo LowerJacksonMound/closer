@@ -2,6 +2,22 @@
 
 Before a pack version or a kernel change is releasable. Regenerated 2026-10-11. Every box, every time.
 
+## Pass 2026-10-24 (front door: every task function claimed before mint; no pack, check, World or law change)
+
+- [x] `gc selftest`: `47 PASS / 0 FAIL / 2 NOT MEASURED`, `gc: selftest PASS`.
+- [x] `gc glossary check` exits 0 (6 retired uses in docs, the same before the change).
+- [x] `closer demo` mints and is accepted (13 tests, 18 claims on 2 functions).
+- [x] Live: `closer claims` on a 15-function task: the first draft missed 7 functions; one more round claimed all 15.
+- [x] Film take 4 (Cartouche + Closer): accepted, Cartouche sealed 15 of 15 (claims completed by the film hand-off, before this change; take 5 re-runs it with Closer covering itself).
+
+## 2026-11-02: the signer's MCP (closer-mcp.sh)
+
+- [x] `tools/list` over stdio: exactly `cl_doctor cl_task cl_claims cl_go cl_status cl_inspect cl_stop`; plant `mcp_outer_gate`.
+- [x] `cl_go` before `cl_claims` refused; `cl_go` with `approved` false refused; both without running anything.
+- [x] Demo repo through the MCP only (driver over stdio): doctor, claims shown, go approved, inspect, stop. See the line below for the verdict.
+- [x] `gc selftest` PASS with the new plant; `gc glossary check` exit 0.
+- [x] Writer surface unchanged: `gc_mcp.py` tool list byte-identical; the writer never sees `closer_mcp.py`.
+
 ## Any change
 
 - [ ] `gc selftest` prints `gc: selftest PASS` and exits 0. Every plant runs the real kernel.
