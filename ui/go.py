@@ -274,13 +274,24 @@ Reply with one ```json block holding {{"claims": [...]}}."""
 _NOT_FUNCTIONS = {"print", "len", "str", "int", "float", "list", "dict", "set", "tuple", "isinstance", "range", "repr"}
 
 
+def _module_of(task: str) -> str:
+    """The module the task writes into: the stem of the first `*.py` it names, or ''."""
+    m = re.search(r"`([A-Za-z_][\w/]*)\.py`", task)
+    return m.group(1).rsplit("/", 1)[-1] if m else ""
+
+
 def task_functions(task: str) -> list[str]:
     """The functions the task names: `name(` inside backticks, without builtins or Capitalized names (exceptions)."""
 
     found = []
     for code in re.findall(r"`([^`]+)`", task):
         for name in re.findall(r"(?<![\w.])((?:[A-Za-z_]\w*\.)*[a-z_]\w*)\(", code):
-            last = name.split(".")[-1]
+            parts = name.split(".")
+            last = parts[-1]
+            # `last_name.lower()` is a method on a value, not a function the app must have: a dotted name counts
+            # only when its head is the module (seen 2026-11-03: a task refused over `lower`).
+            if len(parts) > 1 and parts[0] != _module_of(task):
+                continue
             if last not in _NOT_FUNCTIONS and last not in found and not last.startswith("test"):
                 found.append(last)
     return found

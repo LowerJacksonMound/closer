@@ -22,6 +22,9 @@ All notable changes to Closer are recorded here. The format follows Keep a Chang
   `well_formed` also binds what a claim uses: a claim naming `booking.f` whose setup never imports `booking` gets
   `import booking` first, and a bare `f(...)` gets `from booking import f`; said each time. Seen 2026-11-03: a
   draft with no setup lines at all, so every claim raised NameError and one strike went to the claims.
+- `task_functions` no longer takes a method on a value for a function the app must have: a dotted name in a task's
+  code span counts only when its head is the task's module (`frontdesk.hand_keys(`), so `last_name.lower()` no
+  longer refuses a mint over `lower`. Plant `task_functions_methods`. Seen 2026-11-03 on the hotel task.
 
 ### Changed
 - `closer go` / `closer claims` will not mint a ticket a writer cannot pass in full. After the siloed claim agent drafts,
