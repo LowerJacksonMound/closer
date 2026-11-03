@@ -19,6 +19,9 @@ All notable changes to Closer are recorded here. The format follows Keep a Chang
   as `(lambda: ...)()` with expect `True`, which no signer should be shown.
   The claim brief now shows the one shape for a message-fragment claim (setup with try/except, call `msg`), which
   the agent had been improvising as a `msg(lambda: ...)` helper that does not exist.
+  `well_formed` also binds what a claim uses: a claim naming `booking.f` whose setup never imports `booking` gets
+  `import booking` first, and a bare `f(...)` gets `from booking import f`; said each time. Seen 2026-11-03: a
+  draft with no setup lines at all, so every claim raised NameError and one strike went to the claims.
 
 ### Changed
 - `closer go` / `closer claims` will not mint a ticket a writer cannot pass in full. After the siloed claim agent drafts,

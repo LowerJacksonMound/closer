@@ -13,5 +13,12 @@ claims = [{"name": "m.f", "call": "(lambda: (lambda f: f())(lambda: None))()", "
           {"name": "m.f", "call": "msg", "expect": {"true": "'x' in result"}},
           {"name": "m.f", "call": "f('a', 1)", "expect": {"true": "True"}}]
 assert [c["call"] for c in go.well_formed(claims)] == ["msg", "f('a', 1)"]
+# a claim that names its module but never imports it is bound, not dropped
+c = go.well_formed([{"name": "booking.fxnA_dial", "setup": ["msg = ''", "try:\n    booking.fxnA_dial('')\nexcept ValueError as e:\n    msg = str(e)"], "call": "msg", "expect": {"true": "True"}}])[0]
+assert c["setup"][0] == "import booking", c
+c = go.well_formed([{"name": "booking.fxnA_dial", "setup": [], "call": "fxnA_dial('x')", "expect": {"true": "True"}}])[0]
+assert c["setup"] == ["from booking import fxnA_dial"], c
+c = go.well_formed([{"name": "booking.fxnA_dial", "setup": ["import booking"], "call": "booking.fxnA_dial('x')", "expect": {"true": "True"}}])[0]
+assert c["setup"] == ["import booking"], c
 PY
 echo "PLANT claims_well_formed: PASS"

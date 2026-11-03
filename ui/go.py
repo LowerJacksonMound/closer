@@ -207,6 +207,19 @@ def well_formed(claims):
         if any(isinstance(n, (ast.Lambda, ast.GeneratorExp)) for n in ast.walk(tree)):
             say(f"  dropped a claim on {c.get('name', '?')}: its call is a lambda or generator, not a call: {str(call)[:80]}")
             continue
+        # The claim names "module.function"; the call and setup must bind what they use, or every claim raises
+        # NameError and the strike is the claims' fault (seen 2026-11-03: a draft with no setup lines at all).
+        module, _, func = str(c.get("name", "")).rpartition(".")
+        setup = list(c.get("setup") or [])
+        text = "\n".join(setup + [str(call)])
+        bound = "\n".join(setup)
+        if module and f"{module}." in text and not re.search(rf"^\s*import {re.escape(module)}\b", bound, re.M):
+            setup.insert(0, f"import {module}")
+        if func and re.search(rf"(?<![\w.]){re.escape(func)}\s*\(", text) and not re.search(rf"^\s*from {re.escape(module)} import .*\b{re.escape(func)}\b", bound, re.M):
+            setup.insert(0, f"from {module} import {func}")
+        if setup != list(c.get("setup") or []):
+            say(f"  bound the claim on {c.get('name', '?')}: added {setup[:2 if len(setup) - len(c.get('setup') or []) == 2 else 1]}")
+            c = {**c, "setup": setup}
         kept.append(c)
     return kept
 
