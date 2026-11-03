@@ -14,6 +14,12 @@ All notable changes to Closer are recorded here. The format follows Keep a Chang
   `mcp_outer_gate` holds the tool list and both refusals. `gc_mcp.py` lends its stdio loop (`serve`) and lets a
   subclass bring its own tool list; no behaviour change for the writer. MCP.md documents it.
 
+- `well_formed`, a fixed rule on the claim agent's output before the signer sees it: a claim whose call does not
+  parse, or is a lambda or generator rather than a call, is dropped and said. Seen 2026-11-03: a claim drafted
+  as `(lambda: ...)()` with expect `True`, which no signer should be shown.
+  The claim brief now shows the one shape for a message-fragment claim (setup with try/except, call `msg`), which
+  the agent had been improvising as a `msg(lambda: ...)` helper that does not exist.
+
 ### Changed
 - `closer go` / `closer claims` will not mint a ticket a writer cannot pass in full. After the siloed claim agent drafts,
   every function the task names (`name(` in backticks) must have a claim that calls it (by name, or `f(` in setup, call

@@ -182,12 +182,33 @@ struck, until the claims were written this way):
   strikes an honest writer.
 - Boundaries: use TASK's own words ("older than" is strict) and claim a value on each side of the boundary.
 - Each error path: the exception type TASK names and a fragment of the message TASK states, nothing more.
+- A message fragment is its own claim, shaped exactly so (there is no helper): setup ["msg = ''", "try:\n    f(bad)\nexcept ValueError as e:\n    msg = str(e)"], call "msg", expect {"true": "'fragment' in result"}. The call is
+  always a plain expression; never a lambda, never a generator.
 - Ids and literals in setup must not collide with values the code might derive on its own (use 999, not 1).
 Output your example workings as plain text, then only one fenced ```json block
 holding an object {"claims": [...], "contradictions": [...]} (contradictions may be empty).
 
 TASK:
 """
+
+
+def well_formed(claims):
+    """A fixed rule on the claim agent's output: a claim's call is one expression that names the function under test,
+    with no lambda or generator in it. A claim that fails is dropped and said, never shown as something to sign."""
+    import ast
+    kept = []
+    for c in claims:
+        call = c.get("call") if isinstance(c, dict) else None
+        try:
+            tree = ast.parse(str(call), mode="eval")
+        except SyntaxError:
+            say(f"  dropped a claim on {c.get('name', '?') if isinstance(c, dict) else '?'}: its call does not parse: {str(call)[:80]}")
+            continue
+        if any(isinstance(n, (ast.Lambda, ast.GeneratorExp)) for n in ast.walk(tree)):
+            say(f"  dropped a claim on {c.get('name', '?')}: its call is a lambda or generator, not a call: {str(call)[:80]}")
+            continue
+        kept.append(c)
+    return kept
 
 
 def draft_claims(repo, st, task_file):
@@ -209,6 +230,7 @@ def draft_claims(repo, st, task_file):
     contradictions = (data.get("contradictions") or []) if isinstance(data, dict) else []
     if not isinstance(claims, list) or not claims:
         die("the claim agent returned no claims")
+    claims = well_formed(claims)
     # Every function the task names must have a claim that calls it: a function no claim reaches is never tested,
     # and the gate refuses it after the writer has worked. Ask the same siloed agent for the missing ones, then refuse
     # to mint rather than launch a writer on a ticket that cannot be judged in full.
