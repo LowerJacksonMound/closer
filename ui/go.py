@@ -651,7 +651,10 @@ def cmd_task(a):
 - <FILL: the empty or edge case>.
 - Tests in `<FILL: tests/test_x.py>` for each case above.
 
-Rules for writing this: state the rule first, then examples that follow the rule exactly (a wrong example becomes a
+**Decided** (what `closer claims` asks that the criteria leave open; answer each in one line and run `closer claims` again)
+- <FILL: the question, then its answer>
+
+Rules for writing this: say what the data is first (the shape of the state or record every function takes); state the rule first, then examples that follow the rule exactly (a wrong example becomes a
 wrong claim and strikes an honest writer); name every exception and message; say the order when order matters.
 """)
     say(f"wrote {p}; fill every <FILL: ...>, then `closer go {p}`")
