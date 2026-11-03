@@ -2,6 +2,10 @@
 
 Before a pack version or a kernel change is releasable. Regenerated 2026-10-11. Every box, every time.
 
+## Quiet run (2026-11-03)
+
+- [ ] Quiet run: three new apps of different kinds, fresh session, both gates, zero code changes to this tree. "Release" means first that the app works and runs as expected (Closer accepts, the app is run by hand), and second the signed form (Cartouche sealed). Names and dates here; ledger in ~/ct-live/QUIET_RUN.md.
+
 ## Pass 2026-10-24 (front door: every task function claimed before mint; no pack, check, World or law change)
 
 - [x] `gc selftest`: `47 PASS / 0 FAIL / 2 NOT MEASURED`, `gc: selftest PASS`.
