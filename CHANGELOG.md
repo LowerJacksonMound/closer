@@ -25,6 +25,11 @@ All notable changes to Closer are recorded here. The format follows Keep a Chang
 - `task_functions` no longer takes a method on a value for a function the app must have: a dotted name in a task's
   code span counts only when its head is the task's module (`frontdesk.hand_keys(`), so `last_name.lower()` no
   longer refuses a mint over `lower`. Plant `task_functions_methods`. Seen 2026-11-03 on the hotel task.
+  A dotted head that is a parameter the task's signatures declare is a value too, even when it shares the
+  module's name (`quiz.clock()` in a task for `quiz.py`; the quiz build).
+- The claim brief asks for `questions`: a case a claim would need that TASK.md does not decide. They are written to
+  `signer/questions.txt` and said before the claims, so the signer decides them before the mint instead of the
+  agent inventing an answer. Seen 2026-11-03: a deliberately undecided case drew no contradiction and a made-up claim.
 
 ### Changed
 - `closer go` / `closer claims` will not mint a ticket a writer cannot pass in full. After the siloed claim agent drafts,

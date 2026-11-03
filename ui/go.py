@@ -186,7 +186,10 @@ struck, until the claims were written this way):
   always a plain expression; never a lambda, never a generator.
 - Ids and literals in setup must not collide with values the code might derive on its own (use 999, not 1).
 Output your example workings as plain text, then only one fenced ```json block
-holding an object {"claims": [...], "contradictions": [...]} (contradictions may be empty).
+holding an object {"claims": [...], "contradictions": [...], "questions": [...]} (both lists may be empty). A question
+is a case a claim would need that TASK does not decide (what happens when nothing has been asked yet; an empty list;
+a boundary with no example): do not invent the answer or claim it; state the case in one short sentence so the signer
+can decide it before the mint.
 
 TASK:
 """
@@ -241,9 +244,15 @@ def draft_claims(repo, st, task_file):
         die(f"the claim agent's JSON does not parse ({e}):\n{blocks[-1][:1500]}")
     claims = data.get("claims") if isinstance(data, dict) else data
     contradictions = (data.get("contradictions") or []) if isinstance(data, dict) else []
+    questions = [str(q) for q in (data.get("questions") or [])] if isinstance(data, dict) else []
     if not isinstance(claims, list) or not claims:
         die("the claim agent returned no claims")
     claims = well_formed(claims)
+    (st / "signer" / "questions.txt").write_text("\n".join(questions) + ("\n" if questions else ""))
+    if questions:
+        say(f"{len(questions)} question(s) the task leaves undecided (signer/questions.txt); decide them in TASK.md or accept the silence:")
+        for q in questions:
+            say(f"  ? {q}")
     # Every function the task names must have a claim that calls it: a function no claim reaches is never tested,
     # and the gate refuses it after the writer has worked. Ask the same siloed agent for the missing ones, then refuse
     # to mint rather than launch a writer on a ticket that cannot be judged in full.
@@ -280,6 +289,19 @@ def _module_of(task: str) -> str:
     return m.group(1).rsplit("/", 1)[-1] if m else ""
 
 
+def _params_of(task: str) -> set[str]:
+    """Parameter names the task's signatures declare, `f(quiz, clock)` -> {quiz, clock}: a dotted call on one of
+    them (`quiz.clock()`) is a method on a value even when it shares the module's name."""
+    names: set[str] = set()
+    for code in re.findall(r"`([^`]+)`", task):
+        for args in re.findall(r"[a-z_]\w*\(([^()]*)\)", code):
+            for a in args.split(","):
+                a = a.strip().split("=")[0].strip()
+                if re.fullmatch(r"[a-z_]\w*", a):
+                    names.add(a)
+    return names
+
+
 def task_functions(task: str) -> list[str]:
     """The functions the task names: `name(` inside backticks, without builtins or Capitalized names (exceptions)."""
 
@@ -290,7 +312,7 @@ def task_functions(task: str) -> list[str]:
             last = parts[-1]
             # `last_name.lower()` is a method on a value, not a function the app must have: a dotted name counts
             # only when its head is the module (seen 2026-11-03: a task refused over `lower`).
-            if len(parts) > 1 and parts[0] != _module_of(task):
+            if len(parts) > 1 and (parts[0] != _module_of(task) or parts[0] in _params_of(task)):
                 continue
             if last not in _NOT_FUNCTIONS and last not in found and not last.startswith("test"):
                 found.append(last)
