@@ -11,6 +11,26 @@ hook gates the agent saying done, not writes.
 Needs macOS (`sandbox-exec`), Python 3.10+ as `python3` on PATH (macOS ships 3.9; `brew install python` or python.org gives a newer one), and pytest for E1. A repo with its own interpreter (a venv) names it at
 init (`--python`); E1, C1 and U1 then run the repo's code under it, and pytest must be importable there.
 
+## Install
+
+Clone or copy this folder anywhere. Nothing to build. `closer` is a shell script at the top of the folder; put it
+on your path or call it by its full path, and run it from inside the repo you are gating:
+
+    ln -s /absolute/path/to/CLOSER_THE_APP/closer /usr/local/bin/closer
+    cd your-repo
+    closer doctor                         # the machine, and whether this repo's tests collect
+    closer task add-thing                 # writes add-thing.md; fill every <FILL: ...>, including Decided
+    closer go add-thing.md                # shows the claims, asks for your yes, mints, runs the writer
+
+To drive the same front door from your own Claude Code session, register the signer's MCP server once:
+
+    bash install_closer_mcp.sh            # --print shows the `claude mcp add-json` line; it carries a 50-minute
+                                          # tool timeout because cl_go blocks while the writer works
+
+Its tools are `cl_doctor`, `cl_task`, `cl_claims`, `cl_go`, `cl_inspect`, `cl_status`, `cl_stop` (MCP.md). Every call
+runs `closer <command>` fresh, so an edit to this folder is picked up on the next call; the writer's own server
+inside the restricted session is separate. `QUICKSTART.md` is the five-minute walk, with `closer demo` first.
+
 ## Use
 
 Signer, once per repo:
