@@ -1,5 +1,6 @@
 #!/bin/sh
-# Live in pack v37 (proposals/PACK_v37.md: `trace_replaced` in s1_rules, `probe_unfoldable` in s1_advisory; this file unchanged). v36 (proposals/PACK_v36.md: PACK.json `s1_stand_down`, a pack-level list of relpath patterns (fnmatch) whose
+# Live in pack v40 (proposals/PACK_v40.md: a `const_return` finding on a function the ticket's claims name is stood down, said as
+# `S1 note: stood down ... (claimed; C1 judges it)`; the shape rule judges only unclaimed code). v37 (proposals/PACK_v37.md: `trace_replaced` in s1_rules, `probe_unfoldable` in s1_advisory; this file unchanged). v36 (proposals/PACK_v36.md: PACK.json `s1_stand_down`, a pack-level list of relpath patterns (fnmatch) whose
 # judge_detection / dynamic_code findings are stood down before counting, each said as an `S1 note: stood down` line so the
 # signer sees it; the scanner's data-flow evidence rides in each finding's `why`). v35 (proposals/PACK_v35.md: PACK.json `s1_advisory` rules are reported as `S1 note:` lines on stdout, never a
 # strike; a finding's `why` is said after ` -- `, so a probe found inside a constant string handed to exec / eval / compile
@@ -58,6 +59,23 @@ if not (isinstance(stand_down, list) and all(isinstance(r, str) for r in stand_d
     print("S1 not run: PACK.json s1_stand_down must be a list of relpath patterns", file=sys.stderr)
     sys.exit(75)
 _PROBE_RULES = {"judge_detection", "dynamic_code"}
+# v40: the names the ticket's claims judge (same file C1 reads). A claimed function's behaviour is C1's verdict.
+claimed_names = set()
+_tf = os.environ.get("TICKET_FILE")
+if _tf and os.path.isfile(_tf):
+    try:
+        _t = json.load(open(_tf, encoding="utf-8"))
+        _cf = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(_tf))), "claims", f"{_t.get('ticket_id', 'ticket')}.json")
+        claimed_names = {c.get("name") for c in json.load(open(_cf, encoding="utf-8")) if isinstance(c, dict) and c.get("name")}
+    except (OSError, ValueError):
+        claimed_names = set()
+
+
+def claimed(rel, qual):
+    """True when a claim names this function: `tally.step` for tally.py step, `pkg.mod.f` for src/pkg/mod.py f."""
+    mod = rel[:-3].replace("/", ".") if rel.endswith(".py") else rel.replace("/", ".")
+    full = "." + mod + "." + qual
+    return any(full.endswith("." + n) for n in claimed_names)
 
 
 def stood_down(rel):
@@ -135,6 +153,9 @@ for u in a["units"]:
     kept += sum((now & was).values())
     for key, n in (now - was).items():
         lines = ",".join(str(f["line"]) for f in u["findings"] if (f["rule"], f["qualname"]) == key)
+        if key[0] == "const_return" and claimed(rel, key[1]):
+            notes.append(f"stood down {rel}:{lines} const_return {key[1]} (claimed; C1 judges it)")
+            continue
         hits.append(f"{rel}:{lines} {key[0]} {key[1]} (+{n}){why(u['findings'], key)}")
     # advisory rules: said, never a strike (T16: the gate strikes on a verdict); the signer's page shows them
     was_a = Counter((f["rule"], f["qualname"]) for f in (old or {}).get("findings", []) if f["rule"] in advisory)
