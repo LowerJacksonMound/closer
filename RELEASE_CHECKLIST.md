@@ -171,6 +171,50 @@ Before a pack version or a kernel change is releasable. Regenerated 2026-10-11. 
       proceed; the v37 FTP strikes were the network of the day). Pack v38 changes no verdict on either set.
 
 
+## Pass 2026-11-03 (night), pack v39 (system or outcome; proposals/PACK_v39.md; signer's ruling the same night)
+
+- [x] The check was a proposal first, from the quiet run: a claim whose setup raised before any frame ran inside the tree
+      under test was struck `unreached`. The signer's words: "If it is a problem with the system, not a problem caused by
+      possible counterfeit code being run, a system problem should not count as a strike. But we have to ensure that it
+      is a system problem, not just an outcome we are not expecting."
+- [x] Signer yes (2026-11-03, the ruling above).
+- [x] `pack/live/C1.py`: `where()` in the runner; `judge()` marks `(system)` and turns a call-text failure into
+      `cannot_judge`; `main()` says a function left unreached only by system failures as `C1 unjudged ... (unreached:
+      its claims could not run; system)`, no strike. A failure raised inside the tree is an outcome and judged as before.
+      No new rule id. `pack_version` 39.
+- [x] Plant `plants/c1_system_vs_outcome.sh` replaces `c1_unjudged_unreached_strikes.sh`: a setup NameError lands
+      without a strike and names the function as not judged; a setup that calls into the tree and the tree raises is
+      still struck `unreached`.
+- [x] Law docs match the code: PACK.md v39 row and History, CHANGELOG. (The README Status line lagged at v38 until
+      2026-11-04, fixed in dbadc49.)
+- [x] Writer surface unchanged; `cannot_judge ... (system)` is a line in the verdict, not a strike.
+- [x] Outstanding tickets bound to v38 rejected by the bump, as always; the quiet-run apps re-minted.
+
+## Pass 2026-11-03 (night), pack v40 (a claimed constant is the claim's to judge; proposals/PACK_v40.md; signer's ruling the same hour)
+
+- [x] The check was a proposal first, from quiet run app 2 (the counter): `refuse_below_zero(state)` has its parameter
+      name and its return sentence both locked by Cartouche, so the only honest body returns the literal; S1
+      `const_return` struck it in the same land where claim 5 on that function held.
+- [x] Signer yes (2026-11-03, the same hour).
+- [x] `pack/live/S1.sh`: a `const_return` finding on a function the ticket's claims name (the claims file C1 reads,
+      bound by `claims_sha256`) is stood down and said: `S1 note: stood down <file>:<line> const_return <qualname>
+      (claimed; C1 judges it)`. Every other rule, and `const_return` on an unclaimed function, strikes as before.
+      No new rule id. `pack_version` 40.
+- [x] Why there and not wider: on a claimed function C1 catches a hard-coded return whenever the claims give two inputs
+      with different answers; when every claim expects the same literal no check can tell the two programs apart, and a
+      check that cannot tell is let through (T16). On an unclaimed function the shape rule is the only check that looks.
+- [x] Plant `plants/s1_const_return_claimed.sh`: the claimed constant lands with the note; the unclaimed constant is
+      still struck.
+- [x] `gc selftest` on the v40 tree (2026-11-04, after the pytest exclusion): 53 plants, 51 PASS / 0 FAIL / 2 NOT
+      MEASURED (the Python 3.8 and pytest 3 plants, no such interpreters on this machine).
+- [x] `gc glossary check` exits 0 (no new id).
+- [x] Law docs match the code: PACK.md "Live pack: version 40", S1 row "Last set in v40", v40 History row, README Status,
+      CHANGELOG (PACK.md and README caught up 2026-11-04 in dbadc49).
+- [x] Quiet run under v40: the counter, connect4 and wordfreq landed, both gates, zero code changes to this tree
+      (ledger ~/ct-live/QUIET_RUN.md).
+- [ ] Not recorded here: a rescan of every registered repo at go-live under v39 and v40, as v38 had. The registered
+      repos on this machine are the quiet-run apps and the demo; do it at the next pack bump as part of the pass.
+
 ## Pass 2026-10-23 (release rung 0: version control, license, packaging; no kernel, pack or scanner change)
 
 - [x] `git init`; first commit. Excluded: `__pycache__`, `.pytest_cache`, build dirs, `.DS_Store`, `.env`, `.claude/settings.local.json`, `.archive/`, `scratch/`, `*.log`, `*.zip`, `runs/`, `.getting-close/`, `*.mp4`, and `CLOSER_SPEC_2026-10-10/cli/` (a vendored clone of HTTPie with its own test certificates; nothing in Closer references it). Tracked set 1.6 MB, nothing over 1 MB.
