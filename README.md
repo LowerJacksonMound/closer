@@ -8,7 +8,7 @@ exceptions, hollow tests and broken files from landing. It is not CodeRadar and 
 does not judge whether code that lands is correct. Its ledger is tamper evident, not tamper proof. Its Stop
 hook gates the agent saying done, not writes.
 
-Needs macOS (`sandbox-exec`), Python 3.10+ as `python3` on PATH (macOS ships 3.9; `brew install python` or python.org gives a newer one), and pytest for E1. A repo with its own interpreter (a venv) names it at
+Needs macOS (`sandbox-exec`), Claude Code logged in (`claude` on PATH), Python 3.10+ as `python3` on PATH (macOS ships 3.9; `brew install python` or python.org gives a newer one), and pytest for E1. A repo with its own interpreter (a venv) names it at
 init (`--python`); E1, C1 and U1 then run the repo's code under it, and pytest must be importable there.
 
 ## Install

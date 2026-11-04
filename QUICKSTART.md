@@ -9,7 +9,7 @@ or throws it out. Nothing reaches your files except through a full pass. You wat
 
 - a Mac (the gate holds its checks read-only with the macOS sandbox)
 - Python 3.10 or newer with `pytest`
-- Claude Code installed (`claude` on your PATH)
+- Claude Code installed and logged in (`claude` on your PATH; the claim agent and the writer are Claude sessions)
 - a Python repo with tests that pass under some interpreter you can name
 
 ## Install
