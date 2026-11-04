@@ -4,7 +4,10 @@ Before a pack version or a kernel change is releasable. Regenerated 2026-10-11. 
 
 ## Quiet run (2026-11-03)
 
-- [ ] Quiet run: three new apps of different kinds, fresh session, both gates, zero code changes to this tree. "Release" means first that the app works and runs as expected (Closer accepts, the app is run by hand), and second the signed form (Cartouche sealed). Names and dates here; ledger in ~/ct-live/QUIET_RUN.md.
+- [x] Quiet run: three new apps of different kinds, fresh session, both gates, zero code changes to this tree. "Release" means first that the app works and runs as expected (Closer accepts, the app is run by hand), and second the signed form (Cartouche sealed). Names and dates here; ledger in ~/ct-live/QUIET_RUN.md.
+      2026-11-03 passed: counter, connect4, wordfreq through both gates with zero edits to either tree (count 3, Cartouche d950b28,
+      Closer 657c2c3); count 4 the same day cold-ran the release fixes, four of four (24655f3 / 2a5196a); connect4 re-ticketed
+      and accepted under the owner rule (b6a4bbe). The ledger is kept privately by the owner.
 
 ## Pass 2026-10-24 (front door: every task function claimed before mint; no pack, check, World or law change)
 
@@ -176,7 +179,7 @@ Before a pack version or a kernel change is releasable. Regenerated 2026-10-11. 
 - [x] `pyproject.toml` (`closer` 0.1.0, `requires-python >= 3.10`, no script entry: `bin/gc` finds `pack/live` relative to its checkout) and `CHANGELOG.md` 0.1.0.
 - [x] A stranger's `gc selftest` passes: the two plants that need a Python 3.8 / pytest 3.x interpreter now report `NOT MEASURED` (exit 77) when no such interpreter is on the machine and no `GC_PLANT_*` names one; a named-but-wrong interpreter still FAILs. `plants/run_all.sh` counts PASS / FAIL / NOT MEASURED. Result on this machine: `47 PASS / 0 FAIL / 2 NOT MEASURED`, `gc: selftest PASS`.
 - [x] `closer` refuses below Python 3.10 with one sentence naming the install path, instead of a SyntaxError from `ui/go.py` on Apple's 3.9. README says how a fresh Mac gets 3.10+.
-- [ ] Still to do for rung 0: the README-only install in a real second macOS user account (rung 2 tester). Personal `~/Desktop/CLOSER_PROVING` paths remain in `bin/trials.py`, `bin/dash.py`, `KERNEL.md` and `proposals/` as documentation of where the proving runs lived; env-overridable in the two plants.
+- [ ] Still to do for rung 0: the README-only install in a real second macOS user account (rung 2 tester). In hand 2026-11-04: a friend's Mac, from the full-tree copy. Personal `~/Desktop/CLOSER_PROVING` paths remain in `bin/trials.py`, `bin/dash.py`, `KERNEL.md` and `proposals/` as documentation of where the proving runs lived; env-overridable in the two plants.
 
 ## Pass 2026-10-23, rung 1
 

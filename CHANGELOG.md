@@ -4,6 +4,12 @@ All notable changes to Closer are recorded here. The format follows Keep a Chang
 
 ## [Unreleased]
 
+- README, QUICKSTART: Claude Code must be logged in, not only installed (the claim agent and the writer are Claude
+  sessions); found by the clean-clone mint rehearsal.
+- pyproject version 0.2.0 (was left at 0.1.0 at the v0.2.0 tag).
+
+## [0.2.0] - 2026-11-03
+
 - Pack v40 (2026-11-03, quiet run app 2): S1 `const_return` stands down for a function the ticket's claims name, said as `S1 note: stood down <file>:<line> const_return <qualname> (claimed; C1 judges it)`. The counter's `refuse_below_zero(state)` has its parameter name locked by Cartouche and its return sentence locked by the signed line; the honest body ignores `state` and returns the literal, and claim 5 on it held in the same land that S1 struck. Behaviour is C1's; the shape rule judges only unclaimed code. Plant `s1_const_return_claimed`. (`proposals/PACK_v40.md`)
 
 ### Added

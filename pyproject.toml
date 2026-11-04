@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "closer"
-version = "0.1.0"
+version = "0.2.0"
 description = "A gate between an AI code writer and a repository: signer-written claims, a read-only check pack under the macOS sandbox, and a tamper-evident ledger. Counterfeit code does not land."
 readme = "README.md"
 license = { file = "LICENSE" }
