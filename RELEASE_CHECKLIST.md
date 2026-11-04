@@ -187,4 +187,16 @@ Before a pack version or a kernel change is releasable. Regenerated 2026-10-11. 
 
 ## Pass 2026-10-23, rung 3 (prepared)
 
-- [x] Full-history scan clean; author email rewritten to the GitHub no-reply address before the flip. Repository READY for public: the flip itself is the owner's action (`gh repo edit --visibility public --accept-visibility-change-consequences`), recorded below when done. Rung 2 skipped by decision; the prerelease label and issue tracker take its place.
+- [x] Full-history scan clean. Author email: 4 commits carry the GitHub no-reply address, the rest the owner's GitHub email; the owner ruled 2026-11-04 that it stays. Repository READY for public: the flip itself is the owner's action (`gh repo edit --visibility public --accept-visibility-change-consequences`), recorded below when done. Rung 2 skipped by decision; the prerelease label and issue tracker take its place.
+
+## Pass 2026-11-04, rung 1 and rung 3 (docs and pytest config only; no kernel, pack or scanner change)
+
+- [x] Tag `v0.2.0` re-pointed for the last time while private, to the head that carries README "Reporting a problem",
+      SECURITY.md (contact LowerJacksonMound@proton.me), the pytest exclusion, the pack v40 docs and the CHANGELOG fold.
+      Draft prerelease "Closer 0.2.0" on GitHub.
+- [x] `gc selftest` after the pytest change: 51 PASS / 0 FAIL / 2 NOT MEASURED (no Python 3.8 or pytest 3 here).
+- [x] Clean-clone rehearsal, 2026-11-04: clone into a scratch folder, `closer doctor` inside a repo READY, `closer demo`
+      CORRECT VERSION ACCEPTED (E1 13 tests, C1 14 claims). One QUICKSTART fix from it (doctor runs from inside your repo).
+- [x] Repo settings: wiki, discussions, projects off; issues on. Private vulnerability reporting is offered by GitHub only
+      on a public repo: first action after the flip.
+- [ ] The friend's Mac run is post-flip; a finding is 0.2.1, no tag moves.
