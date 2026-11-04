@@ -109,7 +109,7 @@ write_set. It cannot say done until `check` passes.
 
 ## Status
 
-- Live pack: version 38 (`pack/live/PACK.json`): W1, R6-1, R6-2, R6-4, G18, S1, E1, C1, U1, R10-1, R10-2. S2 was withdrawn
+- Live pack: version 40 (`pack/live/PACK.json`): W1, R6-1, R6-2, R6-4, G18, S1, E1, C1, U1, R10-1, R10-2. S2 was withdrawn
   on 2026-10-15; E1 (the repo's tests on the patched tree), C1 (the ticket's claims) and S1's five shape rules
   (theatre_return, factory_none, finally_return, always_true, identity_return; v26) were added the same day (PACK.md).
   v27 adds C1 evidence for the signer, no strike: claim coverage per changed function (`thin`) and claims that hold
@@ -131,7 +131,10 @@ error. v34 (2026-10-21) adds `judge_detection` to S1 (KERNEL T20): code that ask
   `setprofile` call in non-test code (0 in application code) and notes a runtime-named `getattr` on `sys` as an advisory
   (honest code swaps streams that way). v38 (2026-10-21) extends `judge_detection` to a test runner's name in
   `sys.modules` (`"pytest" in sys.modules` and its siblings, by any form): the oldest "am I under test" check, 0 in
-  application code. Pack v38 is the live pack.
+  application code. v39 (2026-11-03) tells a system failure from an outcome: a claim whose failure ran no frame
+  inside the tree under test is `cannot_judge ... (system)`, no strike; one that did is judged as before. v40 (2026-11-03)
+  stands S1 `const_return` down for a function the ticket's claims name (said as an `S1 note`; C1 judges it). Pack v40 is
+  the live pack.
 - The MVP bar (proposals/MVP_BAR.md, KERNEL T8): met on pack v32 on 2026-10-19 (KERNEL T19); the outcome with its numbers is in that file. Step 5, the signer's page, was closed on a watched land: the trials page rebuilt itself as a restricted writer session minted, staged and landed a ticket. The internal set is sealed (33 tasks, 66 working counterfeits); the external set of 34 real bugs is reported beside it. On 2026-10-21 the external set stands at 34 of 34 fixes landing clean and 34 of 34 buggy trees struck (MVP_BAR.md). The same night the internal set's three criteria-open items were reopened with sharper task text and closed: 0 counterfeits landed, 0 criteria open.
 - Ledger rows are `draft` (the spec's draft ledger; KERNEL L1).
 
