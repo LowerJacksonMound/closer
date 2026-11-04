@@ -26,8 +26,10 @@ and ask the agent for a task: it calls `cl_doctor`, `cl_task`, `cl_claims` and s
 calls `cl_go`, then `cl_inspect` for the verdict (MCP.md). The rest of this page is the terminal route; the two are the
 same gate.
 
-Then check the machine:
+Then check the machine, from inside a repo you mean to use (the last `ok` line is about that folder's tests; run
+in a folder with no tests, including this one, it says `not ready` for that reason alone):
 
+    cd your-repo
     closer doctor
 
 ## See it work first
