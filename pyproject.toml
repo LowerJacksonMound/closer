@@ -24,3 +24,9 @@ classifiers = [
 
 [tool.setuptools.packages.find]
 include = ["scanner*"]
+
+[tool.pytest.ini_options]
+# This tree's own tests are the plants (`gc selftest`); a bare `pytest` here collects nothing. The two folders below
+# are sample repos, not tests of this tree: the spec's CLI tests need pytest_httpbin, and the demo repo imports as
+# its own root. `closer demo` copies the demo repo to a temp folder, so this setting never reaches a gate run.
+addopts = "--ignore=CLOSER_SPEC_2026-10-10 --ignore=ui/demo"

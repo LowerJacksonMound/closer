@@ -145,6 +145,14 @@ error. v34 (2026-10-21) adds `judge_detection` to S1 (KERNEL T20): code that ask
 - RELEASE_CHECKLIST.md: before a pack or kernel change is releasable.
 - MCP.md: the signer's MCP server (`closer-mcp.sh`), its seven tools, and how the yes stays with the person.
 
+## Reporting a problem
+
+Open an issue on this repository. A precise report carries: the live pack version (`pack/live/PACK.json`), the
+ticket id, the verdict line and every strike as `closer inspect` prints them (the check, the function and the gap it
+names), and the output of `closer doctor`. A security problem goes through SECURITY.md, not an issue.
+Issues are welcome; this project does not take outside code.
+
 ## License
 
-PolyForm Noncommercial 1.0.0: read, run and modify freely for noncommercial purposes; commercial use needs a license from the author. See LICENSE.
+PolyForm Noncommercial 1.0.0: read, run and modify freely for noncommercial purposes; commercial use needs a license
+from the author (contact LowerJacksonMound through GitHub). See LICENSE.
