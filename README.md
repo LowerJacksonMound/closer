@@ -154,6 +154,7 @@ Open an issue on this repository. A precise report carries: the live pack versio
 ticket id, the verdict line and every strike as `closer inspect` prints them (the check, the function and the gap it
 names), and the output of `closer doctor`. A security problem goes through SECURITY.md, not an issue.
 Issues are welcome; this project does not take outside code.
+Issues are read; there is no schedule for replies or fixes. Verified 2026-11-04 on a fresh clone on an Apple Silicon Mac under Python 3.14; other Macs are untested.
 
 ## License
 
