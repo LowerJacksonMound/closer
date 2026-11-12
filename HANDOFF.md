@@ -45,6 +45,12 @@ Ian's hand (rulings and git). All six ticked and observed 2026-11-12 (session wi
        earlier tries were stopped by the permission layer first (compound command, then `>>` redirect), which is
        the layer in front of the sandbox in -p mode; in an interactive session the prompt is answered and the
        sandbox refuses the same way.
+       CONTROLS 2026-11-12 (Ian asked for proof): (A) the same python append from a plain shell outside the tree:
+       exit 0, line appended, reverted. (B) nested `claude -p` started in ~/Desktop (not gated), same append by
+       absolute path: written, reverted; so the block is per repo, not global. (C) nested session inside the tree
+       writing probe.txt: exit 0 (not on the deny list), removed; so the sandbox is the deny list, not a blanket.
+       osascript inside the tree reaches AppleScript's own parser (error -2753 on a bad script, no EPERM), so
+       osascript runs both inside and outside; only the writes are denied.
 
 Known, by design, no action:
 - CLOSER_GATE_OFF=1 lifts the hook, not the OS sandbox; hand edits in a gated tree are made from a session started
