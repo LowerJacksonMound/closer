@@ -90,6 +90,30 @@ From go, all three apps, Ian's way (2026-11-12 00:48-00:56). Ian ruled the earli
   Open: GUIDE is a local in fxnB_lookup (cl_submit takes one def); a module constant needs a gate path. ct_stop/cr_stop
   not called; studio on :8790 and dash on :8080 left up for Ian to look at.
 
+David Cross run, all three apps, real footage then rendered scenes (2026-11-12 00:58-01:20). Ian: the sf-build run was
+  not legitimate (ct_render cards are blank; CodeRadar had nothing to find). This run: ~/Desktop/dc-request, dc-scenes,
+  dc-build. 21 screenshots in dc-request/SS. Six contracts in tracks.py with files{} checks (catalogue.json read,
+  plays.log append), contains[] HTML checks, and a handler fxnF_handle(path, catalogue_path, log_path) routed by URL.
+  Cartouche, footage round: ct_search YouTube per line, ct_offer downloaded and cut 14 real clips (yt-dlp + ffmpeg,
+  300 KB-1.9 MB each, CC licences shown on the cards). Studio: one signed per line, every button locked until played
+  through, release from the page wrote build_input.json lock 9eae8f55 (SS 01-06).
+  CLOSER: gated session, hook live. Refused once (prompt said "import lines then one def", agent sent two), then six
+  PASS on try 1 at 01:10:18-01:11:09, file and HTML checks included. The watch page showed SKEW on three mid-run, then
+  SEALED 5/5 (SS 07, 08). Built app served on :8777 from tracks.fxnF_handle: catalogue page, track page with play
+  count climbing 1 -> 2 through plays.log, not-found page (SS 09-12).
+  CodeRadar: 12/12 launch, import map, I/O (json, open), drift, counterfeit 7/7 clean; intent source closer, plan sha
+  == CLOSER's (SS 13-15). 11 mypy annotation notes only.
+  Cartouche, scenes round (Ian: "it's all gen vid now"): found Ian's car_sales_agent render engine under
+  PERPETUALRND/CARTOUCHE_CLOSER_FILM (canvas scene per line, say voice, 24 fps envelope, record_films.py in miniconda,
+  ffmpeg mux, drop into incoming/<function>/ with sidecar). Built a record-store scene the same way: clerk on the phone,
+  five David Cross sleeves on the wall lighting per line, props per shot. 5 clips in 31 s. Swept in by ct_wanted
+  (sweep_incoming; a copied .taken.json blocked it once). Signed and released in the studio on :8791 (SS 16-21).
+  Findings: (1) dc-scenes release has the SAME lock 9eae8f55 as the footage release: cartouche_sha256 covers spec and
+  contracts, not the clips, so swapping every clip does not change the lock; whether that is intended is Ian's call.
+  (2) ct_withdraw's argument is a list (withdraw=[{phrase,id}]) and the candidate id is not exposed by ct_wanted or the
+  clip dictionary, so a signed clip cannot be withdrawn from outside without reading the candidates/ sidecars.
+  (3) The studio has no "set aside" control; the only way back from WATCH is a withdraw.
+
 Known, by design, no action:
 - CLOSER_GATE_OFF=1 lifts the hook, not the OS sandbox; hand edits in a gated tree are made from a session started
   outside it (home or the CLOSER tree), addressing files by path. Start: see line "WITHOUT CLOSER" below.
