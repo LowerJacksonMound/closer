@@ -51,6 +51,10 @@ Ian's hand (rulings and git). All six ticked and observed 2026-11-12 (session wi
        writing probe.txt: exit 0 (not on the deny list), removed; so the sandbox is the deny list, not a blanket.
        osascript inside the tree reaches AppleScript's own parser (error -2753 on a bad script, no EPERM), so
        osascript runs both inside and outside; only the writes are denied.
+       Note: that session (and so every nested probe) ran with CLOSER_GATE_OFF=1, so the hook was off during the
+       sandbox probes; the OS refusal is the sandbox's alone. The hook as source, gate on, fed the real PreToolUse
+       JSON for an Edit on cartouche/hold.py from inside the tree: permissionDecision deny ("direct code writes
+       are blocked here"), logged in ~/.claude/hooks/closer_gate.log. No test files were written for any of this.
 
 Known, by design, no action:
 - CLOSER_GATE_OFF=1 lifts the hook, not the OS sandbox; hand edits in a gated tree are made from a session started
