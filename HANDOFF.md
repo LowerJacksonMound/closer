@@ -71,6 +71,25 @@ Live run, all three apps on a new repo (2026-11-12 00:35-00:42, Ian asked for vi
   Agent could not call cr_intent/cr_status (not in its allowlist; the prompt named a cr_look that does not exist) and
   read CodeRadar's files instead. Next prompt: allow cr_intent and cr_status, drop cr_look.
 
+From go, all three apps, Ian's way (2026-11-12 00:48-00:56). Ian ruled the earlier runs out: the clips were stub files
+  I wrote, so Cartouche's gather and sign-off never ran. This run: ~/Desktop/sf-request (spec.json only to start) and
+  ~/Desktop/sf-build (pyproject only). Screenshots 01-11 in ~/Desktop/sf-request/SS, all taken in Chrome or of the screen.
+  Cartouche: studio `cartouche page --request spec.json --target sf-build`. Through its MCP server: ct_wanted 0
+  candidates; ct_search YouTube real hits; ct_render x3 voices = 15 candidate clips. In the studio (SS 01-04): every
+  sign-off button locked until its clip played through (autoplay refused by Chrome, clicked the native control), one
+  clip per line signed, "sign off all N you watched" shortcut, strip moved to RELEASE, path player, release button wrote
+  build_input.json (lock c7b5bbc6) from the page itself.
+  CLOSER: `claude -p` in the gated sf-build, hook live, tools = the three servers. Refused (GUIDE assignment above the
+  def), FAIL fxnA_answer try 1 (NameError: fxnB_lookup not yet written), then 5 PASS, fxnA on try 2 (SS 05 WRITING 4/5
+  with fxnA MISSING in red, SS 06 SEALED 5/5, SS 07 watcher).
+  CodeRadar: cr_watch refused while bound to seinfeld-test; agent cr_stop'd it and re-ran. 12/12 launch steps (SS 08,
+  11), import map (09), checks clean 6/6 counterfeit, mypy 9 annotation notes (10). intent_7fd53f16bc41.json statement
+  source "closer" after the gearbox tick (source None at launch, closer within 10 s), text = plan intent+expectation;
+  closer_holes plan_sha256 3a58f0f6 == CLOSER plans.jsonl. cr_intent and cr_status were in the allowlist this time and
+  the agent called them.
+  Open: GUIDE is a local in fxnB_lookup (cl_submit takes one def); a module constant needs a gate path. ct_stop/cr_stop
+  not called; studio on :8790 and dash on :8080 left up for Ian to look at.
+
 Known, by design, no action:
 - CLOSER_GATE_OFF=1 lifts the hook, not the OS sandbox; hand edits in a gated tree are made from a session started
   outside it (home or the CLOSER tree), addressing files by path. Start: see line "WITHOUT CLOSER" below.
