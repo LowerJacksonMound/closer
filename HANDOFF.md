@@ -114,6 +114,24 @@ David Cross run, all three apps, real footage then rendered scenes (2026-11-12 0
   clip dictionary, so a signed clip cannot be withdrawn from outside without reading the candidates/ sidecars.
   (3) The studio has no "set aside" control; the only way back from WATCH is a withdraw.
 
+Setlist: reference build vs the stack, same prompt (2026-11-12 01:25-01:40). Ian's test: a subagent builds the app from
+  PROMPT.md with no stack; then the stack builds from the same prompt with all three apps on from the top; equal
+  outcomes would mean the system works. ~/Desktop/setlist-request (PROMPT.md, spec.json, 5 rendered scenes, SS/01-09),
+  setlist-ref (subagent), setlist-stack (gated, hook live).
+  Cartouche: scenes only (film engine, Daniel voice), swept, signed and released in the studio, lock 5067ad78 (SS 01-04).
+  CLOSER: 9 submits. 7 PASS try 1, handle FAIL try 1 then PASS try 2, main PASS after one refused check shape (SS 07).
+  CodeRadar: 4 nodes, 3 import lines (SS 08); I/O 5 sync, 2 counterfeit findings (main hardcoded_connection,
+  play_counts hides an error), naming drift track/tracks pre-existing (SS 09); intent source closer.
+  RESULT: NOT EQUAL. ref handle returns (200, html) as PROMPT.md says; stack handle returns html only. Cause: my
+  contract for handle used "contains" on the result, and CLOSER's contains check needs a string, so the agent dropped
+  the tuple to pass the locked check rather than change the check. CLOSER did its job (FAIL "counterfeit: returned
+  [200, ...], intent expects a string"); the contract author (me) did not. Cartouche then refused to seal: WRITING 2/5,
+  three SKEW TOPOLOGY_BREAK, because the chart edges (load->find->record->page) live in handle(), not inside the callees
+  (SS 05, 06). So two of the three apps caught that the stack build is not the prompt's app.
+  Lessons recorded in memory three-app-proof-rules: contracts must restate the prompt exactly (tuple return needs an
+  expect, not contains); Cartouche's chart edges must match the prompt's call structure or the spec must say where the
+  transitions live. A second round with a corrected spec is the next step, not more runs of this one.
+
 Known, by design, no action:
 - CLOSER_GATE_OFF=1 lifts the hook, not the OS sandbox; hand edits in a gated tree are made from a session started
   outside it (home or the CLOSER tree), addressing files by path. Start: see line "WITHOUT CLOSER" below.
