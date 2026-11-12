@@ -56,6 +56,21 @@ Ian's hand (rulings and git). All six ticked and observed 2026-11-12 (session wi
        JSON for an Edit on cartouche/hold.py from inside the tree: permissionDecision deny ("direct code writes
        are blocked here"), logged in ~/.claude/hooks/closer_gate.log. No test files were written for any of this.
 
+Live run, all three apps on a new repo (2026-11-12 00:35-00:42, Ian asked for visual proof; vets-test was the dry run):
+  Target ~/Desktop/seinfeld-test (pyproject only, gated via roots.txt, sandbox block). Request ~/Desktop/seinfeld-request
+  (spec.json written by hand; everything else produced by the apps). Prompt: prompts/seinfeld.md. Screenshots SS1-SS7 in
+  the request dir.
+  Cartouche CLI: fetch, fill, 5 clips, view+approve each, release -> build_input.json lock c7b5bbc6 (SS1). Page on :8790
+  WAITING 0/5 (SS2) -> SEALED 5/5 (SS3_page_sealed), same lock. ct_watch wrote plans.jsonl (action cartouche, approved,
+  plan 3a58f0f6) at 00:36:51 with no cl_plan call.
+  CLOSER: agent session `claude -p` inside the tree, hook live, tools limited to the three servers. One refusal (two defs
+  in one submit), then five PASS on try 1 at 00:37:55-00:38:21 (SS5 watcher), agree.jsonl five agrees=True. Code in
+  episodes.py entered only through cl_submit. GUIDE sits inside fxnB_lookup because cl_submit takes one def.
+  CodeRadar: cr_watch bound; intent_8e4e0cb9b8cf.json source "closer", closer_holes_8e4e0cb9b8cf.json plan_sha256
+  3a58f0f6 == CLOSER's plan, holes []; noai ALL CLEAR 6/6; monitor ISSUES FOUND = 9 mypy annotation notes only (SS4, SS7).
+  Agent could not call cr_intent/cr_status (not in its allowlist; the prompt named a cr_look that does not exist) and
+  read CodeRadar's files instead. Next prompt: allow cr_intent and cr_status, drop cr_look.
+
 Known, by design, no action:
 - CLOSER_GATE_OFF=1 lifts the hook, not the OS sandbox; hand edits in a gated tree are made from a session started
   outside it (home or the CLOSER tree), addressing files by path. Start: see line "WITHOUT CLOSER" below.
