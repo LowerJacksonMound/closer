@@ -1,1 +1,0 @@
-Pack v30 plants: on signer yes, copy these three into plants/ beside the live ones (run_all.sh picks up every plants/*.sh); c1_py38_qualname.sh needs a Python 3.8 with pytest (GC_PLANT_PY38, default ~/Desktop/CLOSER_PROVING/set2/_envs/tqdm-py38/bin/python).

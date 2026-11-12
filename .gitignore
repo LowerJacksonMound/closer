@@ -1,31 +1,6 @@
-# Python
 __pycache__/
 *.pyc
-.pytest_cache/
-build/
-dist/
-*.egg-info/
-
-# macOS
 .DS_Store
-
-# Local, per-machine
-.env
 .claude/settings.local.json
-
-# Archives, scratch, logs, per-run state (the gate's state lives in ~/.getting-close, never in this tree)
-.archive/
-scratch/
-*.log
-*.zip
-runs/
-.getting-close/
-
-# Vendored third-party clone kept as spec material: HTTPie (github.com/httpie/cli, BSD-3-Clause), 10 MB with its
-# own .git and the RSA test keys under tests/client_certs/. Not Closer's source; it never enters this history.
-/CLOSER_SPEC_2026-10-10/cli/
-/CLOSER_SPEC_2026-10-10/cli/tests/client_certs/
-
-# Film draft video (3.7 MB binary; the two HTML drafts beside it stay)
-*.mp4
-/media/
+*.jsonl
+*.bak
